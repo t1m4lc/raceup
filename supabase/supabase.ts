@@ -14,7 +14,314 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      event_volunteers: {
+        Row: {
+          created_at: string | null
+          event_id: string
+          id: string
+          volunteer_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          event_id: string
+          id?: string
+          volunteer_id: string
+        }
+        Update: {
+          created_at?: string | null
+          event_id?: string
+          id?: string
+          volunteer_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_volunteers_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_volunteers_volunteer_id_fkey"
+            columns: ["volunteer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      events: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          end_date: string
+          id: string
+          location: string
+          name: string
+          organizer_id: string
+          slug: string
+          start_date: string
+          stripe_account_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          end_date: string
+          id?: string
+          location: string
+          name: string
+          organizer_id: string
+          slug: string
+          start_date: string
+          stripe_account_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          end_date?: string
+          id?: string
+          location?: string
+          name?: string
+          organizer_id?: string
+          slug?: string
+          start_date?: string
+          stripe_account_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "events_organizer_id_fkey"
+            columns: ["organizer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      participants: {
+        Row: {
+          birthdate: string
+          certificate_url: string | null
+          certificate_validated: boolean | null
+          checkin_at: string | null
+          created_at: string | null
+          fullname: string
+          gender: string
+          id: string
+          ticket_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          birthdate: string
+          certificate_url?: string | null
+          certificate_validated?: boolean | null
+          checkin_at?: string | null
+          created_at?: string | null
+          fullname: string
+          gender: string
+          id?: string
+          ticket_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          birthdate?: string
+          certificate_url?: string | null
+          certificate_validated?: boolean | null
+          checkin_at?: string | null
+          created_at?: string | null
+          fullname?: string
+          gender?: string
+          id?: string
+          ticket_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "participants_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payments: {
+        Row: {
+          amount_cents: number
+          application_fee_cents: number
+          created_at: string | null
+          id: string
+          status: string
+          stripe_payment_intent_id: string
+          stripe_payment_method: string | null
+          ticket_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          amount_cents: number
+          application_fee_cents: number
+          created_at?: string | null
+          id?: string
+          status: string
+          stripe_payment_intent_id: string
+          stripe_payment_method?: string | null
+          ticket_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          amount_cents?: number
+          application_fee_cents?: number
+          created_at?: string | null
+          id?: string
+          status?: string
+          stripe_payment_intent_id?: string
+          stripe_payment_method?: string | null
+          ticket_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payments_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          auth_user_id: string
+          created_at: string | null
+          fullname: string
+          id: string
+          roles: string[]
+          updated_at: string | null
+        }
+        Insert: {
+          auth_user_id: string
+          created_at?: string | null
+          fullname: string
+          id?: string
+          roles?: string[]
+          updated_at?: string | null
+        }
+        Update: {
+          auth_user_id?: string
+          created_at?: string | null
+          fullname?: string
+          id?: string
+          roles?: string[]
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      races: {
+        Row: {
+          created_at: string | null
+          currency: string
+          date: string
+          description: string | null
+          distance_km: number
+          event_id: string
+          id: string
+          max_participants: number | null
+          name: string
+          price_cents: number
+          slug: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          currency?: string
+          date: string
+          description?: string | null
+          distance_km: number
+          event_id: string
+          id?: string
+          max_participants?: number | null
+          name: string
+          price_cents: number
+          slug: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          currency?: string
+          date?: string
+          description?: string | null
+          distance_km?: number
+          event_id?: string
+          id?: string
+          max_participants?: number | null
+          name?: string
+          price_cents?: number
+          slug?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "races_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tickets: {
+        Row: {
+          created_at: string | null
+          currency: string
+          id: string
+          purchaser_id: string
+          race_id: string
+          status: string
+          stripe_payment_intent_id: string | null
+          total_price_cents: number
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          currency?: string
+          id?: string
+          purchaser_id: string
+          race_id: string
+          status?: string
+          stripe_payment_intent_id?: string | null
+          total_price_cents: number
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          currency?: string
+          id?: string
+          purchaser_id?: string
+          race_id?: string
+          status?: string
+          stripe_payment_intent_id?: string | null
+          total_price_cents?: number
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tickets_purchaser_id_fkey"
+            columns: ["purchaser_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tickets_race_id_fkey"
+            columns: ["race_id"]
+            isOneToOne: false
+            referencedRelation: "races"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

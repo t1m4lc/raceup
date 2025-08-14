@@ -10,6 +10,7 @@ export default defineNuxtConfig({
     "shadcn-nuxt",
     "@nuxtjs/supabase",
     "@unlok-co/nuxt-stripe",
+    "dayjs-nuxt",
   ],
   css: ["~/assets/css/tailwind.css"],
   vite: {
@@ -46,5 +47,11 @@ export default defineNuxtConfig({
       // your api options override for stripe client side https://stripe.com/docs/js/initializing#init_stripe_js-options
       options: {},
     },
+  },
+  dayjs: {
+    locales: ["en", "fr"],
+    plugins: ["relativeTime", "utc", "timezone"],
+    defaultLocale: "fr",
+    defaultTimezone: "Europe/Paris",
   },
 });
