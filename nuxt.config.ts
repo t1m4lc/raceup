@@ -9,6 +9,7 @@ export default defineNuxtConfig({
     "@nuxt/image",
     "shadcn-nuxt",
     "@nuxtjs/supabase",
+    "@unlok-co/nuxt-stripe",
   ],
   css: ["~/assets/css/tailwind.css"],
   vite: {
@@ -29,6 +30,21 @@ export default defineNuxtConfig({
       include: undefined,
       exclude: [],
       saveRedirectToCookie: true,
+    },
+  },
+  stripe: {
+    server: {
+      key: process.env.STRIPE_SECRET_KEY,
+      options: {
+        // your api options override for stripe server side
+        // https://github.com/stripe/stripe-node?tab=readme-ov-file#configuration
+      },
+    },
+    client: {
+      key: process.env.STRIPE_PUBLIC_KEY,
+      // manualClientLoad: true, // if you want to have control where you are going to load the client
+      // your api options override for stripe client side https://stripe.com/docs/js/initializing#init_stripe_js-options
+      options: {},
     },
   },
 });

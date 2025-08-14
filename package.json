@@ -19,6 +19,7 @@
     "@nuxt/image": "^1.11.0",
     "@nuxtjs/supabase": "^1.6.0",
     "@tailwindcss/vite": "^4.1.11",
+    "@unlok-co/nuxt-stripe": "^5.0.0",
     "@vueuse/core": "^13.6.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
