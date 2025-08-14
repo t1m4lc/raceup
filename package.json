@@ -7,13 +7,19 @@
     "dev": "nuxt dev",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
-    "postinstall": "nuxt prepare"
+    "postinstall": "nuxt prepare",
+    "supabase:types": "npx supabase gen types typescript --project-id 'dmodbirytxacwmystfid' --schema public > supabase/supabase.ts",
+    "supabase:pull": "npx supabase db pull --schema auth,storage,public",
+    "supabase:migration:diff": "npx supabase db diff --schema public",
+    "supabase:backup": "npm run supabase:pull && npm run supa-types"
   },
   "dependencies": {
     "@nuxt/content": "^3.6.3",
     "@nuxt/eslint": "^1.8.0",
     "@nuxt/image": "^1.11.0",
+    "@nuxtjs/supabase": "^1.6.0",
     "@tailwindcss/vite": "^4.1.11",
+    "@vueuse/core": "^13.6.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "eslint": "^9.33.0",
