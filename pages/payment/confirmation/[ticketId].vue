@@ -302,26 +302,4 @@ const fetchTicket = async () => {
 onMounted(() => {
   fetchTicket()
 })
-// Call fetchTicket on mount
-onMounted(() => {
-  fetchTicket()
-})
 </script>
-  background-color: #e2e8f0;
-}
-
-.button.primary {
-  background-color: #4f46e5;
-  border: none;
-  color: white;
-}
-
-.button.primary:hover {
-  background-color: #4338ca;
-}
-
-.button-icon {
-  width: 18px;
-  height: 18px;
-}
-</style>

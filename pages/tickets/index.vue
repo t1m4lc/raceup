@@ -105,16 +105,8 @@ const fetchTickets = async () => {
   error.value = ''
   
   try {
-    // First get the user's profile
-    const { data: profile } = await client
-      .from('profiles')
-      .select('id')
-      .eq('auth_user_id', user.value.id)
-      .single()
-    
-    if (!profile) {
-      throw new Error('Profile not found')
-    }
+    // We can now use the Supabase user ID directly as the profile ID
+    const profileId = user.value.id
     
     // Then fetch tickets with that profile ID
     const { data, error: fetchError } = await client
@@ -127,7 +119,7 @@ const fetchTickets = async () => {
         ),
         participants(*)
       `)
-      .eq('purchaser_id', profile.id)
+      .eq('purchaser_id', profileId)
       .order('created_at', { ascending: false })
     
     if (fetchError) throw fetchError

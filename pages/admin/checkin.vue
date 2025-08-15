@@ -499,9 +499,7 @@ const checkInParticipant = async () => {
 onBeforeUnmount(() => {
   stopCamera()
 })
-</script>
 
-<script>
 // This is needed for layout
 definePageMeta({
   layout: 'admin'

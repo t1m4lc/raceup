@@ -198,7 +198,7 @@ const formatDate = (date: string, format = 'MMM D, YYYY') => {
 }
 
 // Format price to currency
-const formatPrice = (price: number, currency: string) => {
+const formatPrice = (price, currency) => {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: currency || 'EUR',
@@ -206,7 +206,7 @@ const formatPrice = (price: number, currency: string) => {
 }
 
 // Get badge variant based on status
-const getStatusVariant = (status: string): 'default' | 'secondary' | 'destructive' | 'outline' => {
+const getStatusVariant = (status) => {
   switch (status) {
     case 'paid':
       return 'default'
@@ -221,7 +221,7 @@ const getStatusVariant = (status: string): 'default' | 'secondary' | 'destructiv
 }
 
 // Get badge variant for payment status
-const getPaymentStatusVariant = (status: string): 'default' | 'secondary' | 'destructive' | 'outline' => {
+const getPaymentStatusVariant = (status) => {
   switch (status) {
     case 'succeeded':
       return 'default'
@@ -236,7 +236,7 @@ const getPaymentStatusVariant = (status: string): 'default' | 'secondary' | 'des
 }
 
 // Get initials from name
-const getInitials = (name: string) => {
+const getInitials = (name) => {
   return name
     .split(' ')
     .map(part => part[0])

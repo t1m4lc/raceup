@@ -86,11 +86,21 @@ import { CalendarIcon, PlusIcon, PencilIcon, UsersIcon, MoreHorizontalIcon } fro
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
 
+interface Event {
+  id: string
+  name: string
+  start_date: string
+  end_date: string
+  location: string
+  participant_count?: number | null
+  [key: string]: any
+}
+
 const { $dayjs } = useNuxtApp()
 const client = useSupabaseClient()
 const user = useSupabaseUser()
 
-const events = ref<any[]>([])
+const events = ref<Event[]>([])
 const loading = ref(true)
 const error = ref('')
 
@@ -107,28 +117,20 @@ const fetchEvents = async () => {
   error.value = ''
   
   try {
-    // First get the user's profile
-    const { data: profile } = await client
-      .from('profiles')
-      .select('id')
-      .eq('auth_user_id', user.value.id)
-      .single()
-    
-    if (!profile) {
-      throw new Error('Profile not found')
-    }
+    // We can now use the Supabase user ID directly as the profile ID
+    const profileId = user.value.id
     
     // Then fetch events organized by this user
     const { data: eventsData, error: eventsError } = await client
       .from('events')
       .select('*')
-      .eq('organizer_id', profile.id)
+      .eq('organizer_id', profileId)
       .order('start_date', { ascending: true })
     
     if (eventsError) throw eventsError
     
     // For each event, count the participants
-    const eventsWithCounts = await Promise.all((eventsData || []).map(async (event) => {
+    const eventsWithCounts = await Promise.all((eventsData || []).map(async (event: Event) => {
       // Count participants in all races for this event
       const { count, error: countError } = await client
         .from('participants')
@@ -155,9 +157,7 @@ const fetchEvents = async () => {
 onMounted(() => {
   fetchEvents()
 })
-</script>
 
-<script>
 // This is needed for layout
 definePageMeta({
   layout: 'admin'

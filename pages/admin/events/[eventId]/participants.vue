@@ -451,9 +451,7 @@ const fetchData = async () => {
 onMounted(() => {
   fetchData()
 })
-</script>
 
-<script>
 // This is needed for layout
 definePageMeta({
   layout: 'admin'

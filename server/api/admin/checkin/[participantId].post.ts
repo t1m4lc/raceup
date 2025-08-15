@@ -24,11 +24,11 @@ export default defineEventHandler(async (event) => {
     // Get Supabase client
     const supabase = await serverSupabaseClient<Database>(event);
 
-    // Get the user's profile
+    // Get the user's profile - using user.id directly as profile id
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
       .select("*")
-      .eq("auth_user_id", user.id)
+      .eq("id", user.id)
       .single();
 
     if (profileError || !profile) {
@@ -39,7 +39,7 @@ export default defineEventHandler(async (event) => {
     }
 
     // Verify the user is a volunteer
-    if (profile.role !== "volunteer") {
+    if (!profile.roles.includes("volunteer")) {
       throw createError({
         statusCode: 403,
         message: "Access denied. Required role: volunteer",
@@ -117,7 +117,7 @@ export default defineEventHandler(async (event) => {
       success: true,
       participant: {
         id: updatedParticipant.id,
-        fullname: updatedParticipant.fullname,
+        fullname: updatedParticipant.full_name, // Updated to use full_name instead of fullname
         checkinAt: updatedParticipant.checkin_at,
         certificateValidated: updatedParticipant.certificate_validated,
       },

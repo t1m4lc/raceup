@@ -84,7 +84,7 @@
                 <Label :for="`name-${index}`">Full Name</Label>
                 <Input 
                   :id="`name-${index}`" 
-                  v-model="participant.fullname" 
+                  v-model="participant.full_name" 
                   placeholder="John Doe" 
                   required 
                 />
@@ -248,7 +248,7 @@ const updateParticipantForms = () => {
     // Add new participants
     while (participants.value.length < count) {
       participants.value.push({
-        fullname: '',
+        full_name: '', // Updated to use full_name instead of fullname
         birthdate: '',
         gender: '',
         certificate_url: '',
@@ -300,7 +300,7 @@ const handleFileUpload = async (event: Event, index: number) => {
 const submitForm = async () => {
   // Validate form
   for (const p of participants.value) {
-    if (!p.fullname || !p.birthdate || !p.gender) {
+    if (!p.full_name || !p.birthdate || !p.gender) {
       alert('Please complete all participant details')
       return
     }

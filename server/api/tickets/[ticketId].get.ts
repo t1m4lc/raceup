@@ -22,11 +22,11 @@ export default defineEventHandler(async (event) => {
     // Get Supabase client
     const supabase = await serverSupabaseClient<Database>(event);
 
-    // Get the user's profile
+    // Get the user's profile - using user.id directly as profile id
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
       .select("*")
-      .eq("auth_user_id", user.id)
+      .eq("id", user.id)
       .single();
 
     if (profileError || !profile) {
@@ -106,11 +106,11 @@ export default defineEventHandler(async (event) => {
       },
       purchaser: {
         id: ticket.purchaser.id,
-        name: ticket.purchaser.fullname,
+        name: ticket.purchaser.full_name, // Updated to use full_name instead of fullname
       },
       participants: ticket.participants.map((p: any) => ({
         id: p.id,
-        name: p.fullname,
+        name: p.full_name, // Updated to use full_name instead of fullname
         birthdate: formatDate(p.birthdate, "YYYY-MM-DD"),
         gender: p.gender,
         certificateValidated: p.certificate_validated,
@@ -123,10 +123,12 @@ export default defineEventHandler(async (event) => {
             status: payment.status,
             amount: payment.amount_cents / 100,
             applicationFee: payment.application_fee_cents / 100,
-            createdAt: formatDate(payment.created_at),
+            createdAt: payment.created_at
+              ? formatDate(payment.created_at)
+              : null,
           }
         : null,
-      createdAt: formatDate(ticket.created_at),
+      createdAt: ticket.created_at ? formatDate(ticket.created_at) : null,
     };
 
     return formattedTicket;

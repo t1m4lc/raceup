@@ -1,6 +1,6 @@
 import { serverSupabaseClient, serverSupabaseUser } from "#supabase/server";
-import { formatDate } from "~/server/utils/helpers";
 import type { Database } from "~/supabase/supabase";
+import dayjs from "dayjs";
 
 export default defineEventHandler(async (event) => {
   try {
@@ -22,11 +22,11 @@ export default defineEventHandler(async (event) => {
     // Get Supabase client
     const supabase = await serverSupabaseClient<Database>(event);
 
-    // Get the user's profile
+    // Get the user's profile - using user.id directly as profile id
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
       .select("*")
-      .eq("auth_user_id", user.id)
+      .eq("id", user.id)
       .single();
 
     if (profileError || !profile) {
@@ -85,12 +85,14 @@ export default defineEventHandler(async (event) => {
     // Format the response
     const formattedParticipants = data.map((p: any) => ({
       id: p.id,
-      name: p.fullname,
-      birthdate: formatDate(p.birthdate, "YYYY-MM-DD"),
+      name: p.full_name, // Updated to use full_name instead of fullname
+      birthdate: dayjs(p.birthdate).format("YYYY-MM-DD"),
       gender: p.gender,
       certificateValidated: p.certificate_validated,
       certificateUrl: p.certificate_url,
-      checkedIn: p.checkin_at ? formatDate(p.checkin_at) : null,
+      checkedIn: p.checkin_at
+        ? dayjs(p.checkin_at).format("MMM D, YYYY HH:mm")
+        : null,
       ticket: {
         id: p.ticket.id,
         status: p.ticket.status,
@@ -98,14 +100,14 @@ export default defineEventHandler(async (event) => {
       race: {
         id: p.ticket.race.id,
         name: p.ticket.race.name,
-        date: formatDate(p.ticket.race.date),
+        date: dayjs(p.ticket.race.date).format("MMM D, YYYY"),
         distance: p.ticket.race.distance_km,
       },
       purchaser: {
         id: p.ticket.purchaser.id,
-        name: p.ticket.purchaser.fullname,
+        name: p.ticket.purchaser.full_name, // Updated to use full_name instead of fullname
       },
-      createdAt: formatDate(p.created_at),
+      createdAt: dayjs(p.created_at).format("MMM D, YYYY HH:mm"),
     }));
 
     return {

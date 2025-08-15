@@ -11,6 +11,7 @@ export default defineNuxtConfig({
     "@nuxtjs/supabase",
     "@unlok-co/nuxt-stripe",
     "dayjs-nuxt",
+    "@pinia/nuxt",
   ],
   css: ["~/assets/css/tailwind.css"],
   vite: {

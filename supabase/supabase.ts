@@ -107,7 +107,7 @@ export type Database = {
           certificate_validated: boolean | null
           checkin_at: string | null
           created_at: string | null
-          fullname: string
+          full_name: string
           gender: string
           id: string
           ticket_id: string
@@ -119,7 +119,7 @@ export type Database = {
           certificate_validated?: boolean | null
           checkin_at?: string | null
           created_at?: string | null
-          fullname: string
+          full_name: string
           gender: string
           id?: string
           ticket_id: string
@@ -131,7 +131,7 @@ export type Database = {
           certificate_validated?: boolean | null
           checkin_at?: string | null
           created_at?: string | null
-          fullname?: string
+          full_name?: string
           gender?: string
           id?: string
           ticket_id?: string
@@ -193,25 +193,25 @@ export type Database = {
       }
       profiles: {
         Row: {
-          auth_user_id: string
+          avatar_url: string | null
           created_at: string | null
-          fullname: string
+          full_name: string | null
           id: string
           roles: string[]
           updated_at: string | null
         }
         Insert: {
-          auth_user_id: string
+          avatar_url?: string | null
           created_at?: string | null
-          fullname: string
-          id?: string
+          full_name?: string | null
+          id: string
           roles?: string[]
           updated_at?: string | null
         }
         Update: {
-          auth_user_id?: string
+          avatar_url?: string | null
           created_at?: string | null
-          fullname?: string
+          full_name?: string | null
           id?: string
           roles?: string[]
           updated_at?: string | null

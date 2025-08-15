@@ -20,12 +20,12 @@ export default defineEventHandler(async (event) => {
       });
     }
 
-    // Get the user's profile
+    // Get the user's profile - using user.id directly as profile id
     const supabase = await serverSupabaseClient<Database>(event);
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
       .select("*")
-      .eq("auth_user_id", user.id)
+      .eq("id", user.id)
       .single();
 
     if (profileError || !profile) {
@@ -127,7 +127,7 @@ export default defineEventHandler(async (event) => {
     // Create participants for the ticket
     const participantsToInsert = participants.map((participant) => ({
       ticket_id: ticket.id,
-      fullname: participant.fullname,
+      full_name: participant.fullname, // Changed to full_name to match new schema
       birthdate: participant.birthdate,
       gender: participant.gender,
       certificate_url: participant.certificate_url || null,
