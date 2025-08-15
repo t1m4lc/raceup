@@ -55,40 +55,58 @@ export type Database = {
           created_at: string | null
           description: string | null
           end_date: string
+          facebook_url: string | null
           id: string
+          instagram_url: string | null
           location: string
+          location_map_url: string | null
+          logo_url: string | null
           name: string
           organizer_id: string
+          practical_info: Json | null
           slug: string
           start_date: string
           stripe_account_id: string
           updated_at: string | null
+          website_url: string | null
         }
         Insert: {
           created_at?: string | null
           description?: string | null
           end_date: string
+          facebook_url?: string | null
           id?: string
+          instagram_url?: string | null
           location: string
+          location_map_url?: string | null
+          logo_url?: string | null
           name: string
           organizer_id: string
+          practical_info?: Json | null
           slug: string
           start_date: string
           stripe_account_id: string
           updated_at?: string | null
+          website_url?: string | null
         }
         Update: {
           created_at?: string | null
           description?: string | null
           end_date?: string
+          facebook_url?: string | null
           id?: string
+          instagram_url?: string | null
           location?: string
+          location_map_url?: string | null
+          logo_url?: string | null
           name?: string
           organizer_id?: string
+          practical_info?: Json | null
           slug?: string
           start_date?: string
           stripe_account_id?: string
           updated_at?: string | null
+          website_url?: string | null
         }
         Relationships: [
           {
@@ -220,44 +238,59 @@ export type Database = {
       }
       races: {
         Row: {
+          aid_stations: number | null
           created_at: string | null
           currency: string
           date: string
           description: string | null
           distance_km: number
+          elevation_gain: number | null
           event_id: string
           id: string
           max_participants: number | null
           name: string
           price_cents: number
+          registration_open: boolean | null
+          route_map_url: string | null
+          rules: string | null
           slug: string
           updated_at: string | null
         }
         Insert: {
+          aid_stations?: number | null
           created_at?: string | null
           currency?: string
           date: string
           description?: string | null
           distance_km: number
+          elevation_gain?: number | null
           event_id: string
           id?: string
           max_participants?: number | null
           name: string
           price_cents: number
+          registration_open?: boolean | null
+          route_map_url?: string | null
+          rules?: string | null
           slug: string
           updated_at?: string | null
         }
         Update: {
+          aid_stations?: number | null
           created_at?: string | null
           currency?: string
           date?: string
           description?: string | null
           distance_km?: number
+          elevation_gain?: number | null
           event_id?: string
           id?: string
           max_participants?: number | null
           name?: string
           price_cents?: number
+          registration_open?: boolean | null
+          route_map_url?: string | null
+          rules?: string | null
           slug?: string
           updated_at?: string | null
         }
