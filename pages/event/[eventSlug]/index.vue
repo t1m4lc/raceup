@@ -13,10 +13,21 @@
     </div>
     
     <div v-else>
-      <!-- Registration Drawer -->
-      <RaceRegistrationDrawer 
-        v-model:open="isRegistrationDrawerOpen" 
+      <!-- Desktop Dialog (≥1024px) -->
+      <RaceRegistrationDialog 
+        v-if="!isMobile"
+        v-model:open="isDialogOpen" 
         :race="selectedRace" 
+        mode="dialog"
+        @added-to-cart="handleAddedToCart" 
+      />
+      
+      <!-- Mobile Drawer (<1024px) -->
+      <RaceRegistrationDialog 
+        v-if="isMobile"
+        v-model:open="isDrawerOpen" 
+        :race="selectedRace" 
+        mode="drawer"
         @added-to-cart="handleAddedToCart" 
       />
       
@@ -127,7 +138,7 @@
                           <div class="flex-grow">
                             <Button 
                               class="w-full" 
-                              @click="race.register_state === 'open' ? openRegistrationDrawer(race) : null"
+                              @click="race.register_state === 'open' ? openRegistration(race) : null"
                               :disabled="race.register_state !== 'open'"
                             >
                               {{ race.register_label }}
@@ -142,7 +153,7 @@
                     <div v-else class="flex-grow">
                       <Button 
                         class="w-full" 
-                        @click="race.register_state === 'open' ? openRegistrationDrawer(race) : null"
+                        @click="race.register_state === 'open' ? openRegistration(race) : null"
                         :disabled="race.register_state !== 'open'"
                       >
                         {{ race.register_label }}
@@ -294,7 +305,7 @@
 <script setup>
 import { ref, onMounted, onBeforeUnmount, computed, watch } from 'vue'
 import { useRoute, useRouter } from '#imports'
-import { useInterval } from '@vueuse/core'
+import { useInterval, useWindowSize } from '@vueuse/core'
 import { 
   ArrowLeftIcon, 
   CalendarIcon, 
@@ -315,12 +326,16 @@ import { AspectRatio } from '@/components/ui/aspect-ratio'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import RaceRegistrationDrawer from '@/components/cart/RaceRegistrationDrawer.vue'
+import RaceRegistrationDialog from '@/components/cart/RaceRegistrationDialog.vue'
 
 const route = useRoute()
 const router = useRouter()
 const { $dayjs } = useNuxtApp()
 const client = useSupabaseClient()
+
+// Responsive detection
+const { width } = useWindowSize()
+const isMobile = computed(() => width.value < 1024) // lg breakpoint
 
 const eventSlug = computed(() => route.params.eventSlug)
 
@@ -328,7 +343,8 @@ const event = ref(null)
 const races = ref([])
 const loading = ref(true)
 const error = ref('')
-const isRegistrationDrawerOpen = ref(false)
+const isDialogOpen = ref(false)
+const isDrawerOpen = ref(false)
 const selectedRace = ref(null)
 
 // Countdown timer
@@ -568,16 +584,21 @@ const fetchEventData = async () => {
   }
 }
 
-// Open registration drawer
-const openRegistrationDrawer = (race) => {
+// Open registration dialog/drawer based on screen size
+const openRegistration = (race) => {
   selectedRace.value = race
-  isRegistrationDrawerOpen.value = true
+  if (isMobile.value) {
+    isDrawerOpen.value = true
+  } else {
+    isDialogOpen.value = true
+  }
 }
 
 // Handle added to cart event
 const handleAddedToCart = () => {
   // You can add a toast notification here if desired
-  isRegistrationDrawerOpen.value = false
+  isDialogOpen.value = false
+  isDrawerOpen.value = false
 }
 
 // Scroll to races section

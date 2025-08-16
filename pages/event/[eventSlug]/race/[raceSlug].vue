@@ -13,10 +13,21 @@
     </div>
     
     <div v-else>
-      <!-- Registration Dialog/Drawer -->
+      <!-- Desktop Dialog (≥1024px) -->
       <RaceRegistrationDialog 
-        v-model:open="isRegistrationDrawerOpen" 
+        v-if="!isMobile"
+        v-model:open="isDialogOpen" 
         :race="race" 
+        mode="dialog"
+        @added-to-cart="handleAddedToCart" 
+      />
+      
+      <!-- Mobile Drawer (<1024px) -->
+      <RaceRegistrationDialog 
+        v-if="isMobile"
+        v-model:open="isDrawerOpen" 
+        :race="race" 
+        mode="drawer"
         @added-to-cart="handleAddedToCart" 
       />
 
@@ -332,31 +343,32 @@ import {
   BanIcon,
   CalendarIcon, 
   CheckIcon,
-  ClockIcon,
-  CupSodaIcon,
   MapPinIcon, 
   MountainIcon,
   RulerIcon,
   UsersIcon,
-  XIcon
 } from 'lucide-vue-next'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { AspectRatio } from '@/components/ui/aspect-ratio'
 import { Progress } from '@/components/ui/progress'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import RaceRegistrationDialog from '@/components/cart/RaceRegistrationDialog.vue'
 import { useCartStore } from '@/stores/cart'
+import { useWindowSize } from '@vueuse/core'
 
 const route = useRoute()
 const router = useRouter()
 const { $dayjs } = useNuxtApp()
 const client = useSupabaseClient()
 const cartStore = useCartStore()
+
+// Responsive detection
+const { width } = useWindowSize()
+const isMobile = computed(() => width.value < 1024) // lg breakpoint
 
 const eventSlug = computed(() => route.params.eventSlug as string)
 const raceSlug = computed(() => route.params.raceSlug as string)
@@ -366,7 +378,8 @@ const race = ref<any>(null)
 const loading = ref(true)
 const error = ref('')
 const remainingSpots = ref<number | null>(null)
-const isRegistrationDrawerOpen = ref(false)
+const isDialogOpen = ref(false)
+const isDrawerOpen = ref(false)
 
 // Computed properties
 const participationPercentage = computed(() => {
@@ -509,14 +522,19 @@ const fetchRaceData = async () => {
   }
 }
 
-// Open registration drawer
+// Open registration drawer/dialog based on screen size
 const openRegistrationDrawer = () => {
-  isRegistrationDrawerOpen.value = true
+  if (isMobile.value) {
+    isDrawerOpen.value = true
+  } else {
+    isDialogOpen.value = true
+  }
 }
 
 // Handle added to cart event
 const handleAddedToCart = () => {
-  isRegistrationDrawerOpen.value = false
+  isDialogOpen.value = false
+  isDrawerOpen.value = false
   cartStore.openCart()
 }
 

@@ -1,7 +1,7 @@
 <template>
   <div>
-    <!-- Desktop Dialog (lg and up) -->
-    <Dialog :open="open && !isMobile" @update:open="(value) => $emit('update:open', value)">
+    <!-- Desktop Dialog (≥1024px) -->
+    <Dialog :open="open && (mode === 'dialog' || (!mode && !isMobile))" @update:open="(value) => $emit('update:open', value)">
       <DialogContent class="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader class="flex-shrink-0">
           <DialogTitle>Register for {{ race?.name }}</DialogTitle>
@@ -65,31 +65,18 @@
       </DialogContent>
     </Dialog>
 
-    <!-- Mobile Drawer (below lg) -->
-    <Drawer :open="open && isMobile" @update:open="(value) => $emit('update:open', value)">
+    <!-- Mobile Drawer (<1024px) -->
+    <Drawer :open="open && (mode === 'drawer' || (!mode && isMobile))" @update:open="(value) => $emit('update:open', value)">
       <DrawerContent class="max-h-[90vh]">
-        <DrawerHeader>
-          <DrawerTitle>Register for {{ race?.name }}</DrawerTitle>
-          <DrawerDescription class="flex items-center gap-4 text-sm">
-            <span class="font-medium">{{ formatPrice(race?.price_cents, race?.currency) }}</span>
-          </DrawerDescription>
+        <DrawerHeader class="pb-2">
+          <div class="flex items-center justify-between">
+            <DrawerTitle class="text-lg">Register for {{ race?.name }}</DrawerTitle>
+            <span class="font-semibold text-primary">{{ formatPrice(race?.price_cents, race?.currency) }}</span>
+          </div>
         </DrawerHeader>
         
-        <div class="p-4 sm:p-6">
-          <!-- Mobile Stepper -->
-          <div class="flex justify-center mb-6">
-            <div class="flex gap-2">
-              <div 
-                v-for="(step, index) in steps" 
-                :key="index"
-                :class="[
-                  'w-3 h-3 rounded-full',
-                  currentStep >= index ? 'bg-primary' : 'bg-muted'
-                ]"
-              />
-            </div>
-          </div>
-          
+        <div class="px-4 pb-4">
+
           <RegistrationSteps 
             :current-step="currentStep"
             :participants="participants"
@@ -114,8 +101,6 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { CalendarIcon, TagIcon, MoveRightIcon } from 'lucide-vue-next'
-import { Button } from '@/components/ui/button'
 import { 
   Dialog,
   DialogContent,
@@ -126,7 +111,6 @@ import {
 import {
   Drawer,
   DrawerContent,
-  DrawerDescription,
   DrawerHeader,
   DrawerTitle,
 } from '@/components/ui/drawer'
@@ -136,6 +120,7 @@ import { useCartStore } from '@/stores/cart'
 const props = defineProps<{
   open: boolean
   race: any
+  mode?: 'dialog' | 'drawer'
 }>()
 
 const emit = defineEmits<{
@@ -173,13 +158,6 @@ const availableExtras = ref([
   { id: 'photos', name: 'Race Photos', price_cents: 1500 },
 ])
 const extraSelections = ref<Record<number, Record<string, boolean>>>({})
-
-// Methods
-const { $dayjs } = useNuxtApp()
-
-const formatDate = (date: string) => {
-  return $dayjs(date).format('DD MMMM YYYY')
-}
 
 const formatPrice = (priceCents: number, currency: string = 'EUR') => {
   return new Intl.NumberFormat('fr-FR', {

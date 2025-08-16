@@ -14,8 +14,7 @@
             <!-- Step 1: Number of Participants -->
             <div v-if="currentStep === 0">
               <div class="mb-6">
-                <h3 class="text-xl font-semibold mb-2">Number of Participants</h3>
-                <p class="text-sm text-muted-foreground">How many people are you registering?</p>
+                <h3 class="text-sm text-muted-foreground">How many people are you registering?</h3>
               </div>
               
               <div class="space-y-6">
@@ -182,7 +181,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, watch } from 'vue'
+import { ref, reactive, watch } from 'vue'
 import { useCartStore, type CartParticipant } from '~/stores/cart'
 import { CalendarIcon } from 'lucide-vue-next'
 import { Alert, AlertDescription } from '@/components/ui/alert'

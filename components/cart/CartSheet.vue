@@ -13,9 +13,9 @@
     <Sheet :open="isCartOpen" @update:open="(open) => updateCartOpen(open)">
       <SheetContent side="right" class="w-full sm:max-w-md p-0 flex flex-col h-full">
         <!-- Fixed Header -->
-        <div class="p-5 border-b">
+        <div class="p-3 border-b">
           <SheetHeader>
-            <SheetTitle>Your Cart</SheetTitle>
+            <SheetTitle class="text-xl">Your Cart</SheetTitle>
             <SheetDescription v-if="!cartItems.length">
               Your cart is empty
             </SheetDescription>
@@ -108,8 +108,18 @@
             
             <!-- Service Fee -->
             <div class="flex justify-between text-sm">
-              <div>
+              <div class="flex items-center gap-1">
                 <span>Service fee</span>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <HelpCircleIcon class="h-3 w-3 text-muted-foreground cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent class="max-w-xs">
+                      <p>Software service fees to support platform maintenance, security, and customer support.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
                 <span class="text-xs text-muted-foreground ml-1">({{ feeAllocationLabel }})</span>
               </div>
               <span>{{ formattedFeesAmount }}</span>
@@ -134,7 +144,7 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia'
 import { useCartStore, type CartItem } from '~/stores/cart'
-import { ShoppingCartIcon, XIcon } from 'lucide-vue-next'
+import { ShoppingCartIcon, XIcon, HelpCircleIcon } from 'lucide-vue-next'
 import { computed } from 'vue'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -146,6 +156,7 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 
 const { $dayjs } = useNuxtApp()
 const router = useRouter()
