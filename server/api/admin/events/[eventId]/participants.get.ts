@@ -36,14 +36,36 @@ export default defineEventHandler(async (event) => {
       });
     }
 
-    // Verify the user is an organizer for this event
-    const { data: isOrganizer } = await supabase
+    // Verify the user is an organizer/founder for this event
+    const { data: eventData, error: eventError } = await supabase
       .from("events")
-      .select("id")
+      .select(
+        `
+        id,
+        organization:organizations(
+          id,
+          founder_id,
+          volunteers
+        )
+      `
+      )
       .eq("id", eventId)
-      .eq("organizer_id", profile.id);
+      .single();
 
-    if (!isOrganizer?.length) {
+    if (eventError || !eventData) {
+      throw createError({
+        statusCode: 404,
+        message: "Event not found",
+      });
+    }
+
+    // Check if the user is a founder or volunteer of the organization
+    const isFounder = eventData.organization?.founder_id === profile.id;
+    const isVolunteer = eventData.organization?.volunteers?.includes(
+      profile.id
+    );
+
+    if (!isFounder && !isVolunteer) {
       throw createError({
         statusCode: 403,
         message: "You do not have permission to access this resource",
@@ -61,8 +83,9 @@ export default defineEventHandler(async (event) => {
           race:races(
             id,
             name,
-            date,
-            distance_km
+            start_time,
+            distance_km,
+            event_id
           ),
           purchaser:profiles!tickets_purchaser_id_fkey(
             id,
@@ -85,7 +108,7 @@ export default defineEventHandler(async (event) => {
     // Format the response
     const formattedParticipants = data.map((p: any) => ({
       id: p.id,
-      name: p.full_name, // Updated to use full_name instead of fullname
+      name: p.fullname,
       birthdate: dayjs(p.birthdate).format("YYYY-MM-DD"),
       gender: p.gender,
       certificateValidated: p.certificate_validated,
@@ -100,12 +123,12 @@ export default defineEventHandler(async (event) => {
       race: {
         id: p.ticket.race.id,
         name: p.ticket.race.name,
-        date: dayjs(p.ticket.race.date).format("MMM D, YYYY"),
+        date: dayjs(p.ticket.race.start_time).format("MMM D, YYYY"),
         distance: p.ticket.race.distance_km,
       },
       purchaser: {
         id: p.ticket.purchaser.id,
-        name: p.ticket.purchaser.full_name, // Updated to use full_name instead of fullname
+        name: p.ticket.purchaser.fullname,
       },
       createdAt: dayjs(p.created_at).format("MMM D, YYYY HH:mm"),
     }));

@@ -20,7 +20,8 @@
               Your cart is empty
             </SheetDescription>
             <SheetDescription v-else>
-              {{ totalItems }} {{ totalItems === 1 ? 'participant' : 'participants' }} in your cart
+              {{ totalItems }} {{ totalItems === 1 ? 'participant' : 'participants' }} 
+              {{ cartItems.length > 1 ? `in ${cartItems.length} races` : `in ${cartItems.length} race` }} in your cart
             </SheetDescription>
           </SheetHeader>
         </div>
@@ -90,22 +91,31 @@
           </ScrollArea>
         </div>
           
-        <!-- Fixed Footer -->
-        <div class="border-t p-5 bg-background">
+        <!-- Fixed Footer - Only show when cart has items -->
+        <div v-if="cartItems.length > 0" class="border-t p-5 bg-background">
           <!-- Cart summary with extra information -->
           <div class="space-y-2 mb-4">
-            <div class="flex justify-between text-sm">
-              <span>Number of races</span>
-              <span>{{ cartItems.length }}</span>
-            </div>
-            <div class="flex justify-between text-sm">
-              <span>Number of participants</span>
-              <span>{{ totalItems }}</span>
-            </div>
             <div v-if="totalExtras > 0" class="flex justify-between text-sm">
               <span>Total extras selected</span>
               <span>{{ totalExtras }}</span>
             </div>
+            
+            <!-- Subtotal -->
+            <div class="flex justify-between text-sm pt-2">
+              <span>Subtotal</span>
+              <span>{{ formattedSubtotalPrice }}</span>
+            </div>
+            
+            <!-- Service Fee -->
+            <div class="flex justify-between text-sm">
+              <div>
+                <span>Service fee</span>
+                <span class="text-xs text-muted-foreground ml-1">({{ feeAllocationLabel }})</span>
+              </div>
+              <span>{{ formattedFeesAmount }}</span>
+            </div>
+            
+            <!-- Total -->
             <div class="flex justify-between mt-4 font-medium">
               <span>Total</span>
               <span>{{ formattedTotalPrice }}</span>
@@ -143,7 +153,13 @@ const cartStore = useCartStore()
 
 // Extract reactive state properties using storeToRefs
 const { items: cartItems, isCartOpen } = storeToRefs(cartStore)
-const { totalItems, formattedTotalPrice } = storeToRefs(cartStore)
+const { 
+  totalItems, 
+  formattedTotalPrice, 
+  formattedSubtotalPrice, 
+  formattedFeesAmount,
+  feeAllocationLabel
+} = storeToRefs(cartStore)
 
 // Compute total extras across all participants
 const totalExtras = computed(() => {

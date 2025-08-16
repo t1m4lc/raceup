@@ -42,7 +42,13 @@ export default defineEventHandler(async (event) => {
       .select(
         `
         *,
-        race:races(*),
+        race:races(
+          *,
+          event:events(
+            *,
+            organization:organizations(*)
+          )
+        ),
         purchaser:profiles!tickets_purchaser_id_fkey(*),
         participants(*)
       `
@@ -61,21 +67,14 @@ export default defineEventHandler(async (event) => {
     // Check if the user is the purchaser or has a role that allows access
     const isOwner = ticket.purchaser_id === profile.id;
 
-    // Check if user is organizer of the event
-    const { data: isOrganizer } = await supabase
-      .from("events")
-      .select("id")
-      .eq("id", ticket.race.event_id)
-      .eq("organizer_id", profile.id);
+    // Check if user is founder or volunteer of the organization that owns this event
+    const organization = ticket.race.event?.organization;
+    const hasOrgAccess =
+      organization &&
+      (organization.founder_id === profile.id ||
+        organization.volunteers.includes(profile.id));
 
-    // Check if user is a volunteer for the event
-    const { data: isVolunteer } = await supabase
-      .from("event_volunteers")
-      .select("id")
-      .eq("event_id", ticket.race.event_id)
-      .eq("volunteer_id", profile.id);
-
-    if (!isOwner && !isOrganizer?.length && !isVolunteer?.length) {
+    if (!isOwner && !hasOrgAccess) {
       throw createError({
         statusCode: 403,
         message: "You do not have permission to view this ticket",
@@ -100,17 +99,17 @@ export default defineEventHandler(async (event) => {
       race: {
         id: ticket.race.id,
         name: ticket.race.name,
-        date: formatDate(ticket.race.date),
+        date: formatDate(ticket.race.start_time),
         distance: ticket.race.distance_km,
         eventId: ticket.race.event_id,
       },
       purchaser: {
         id: ticket.purchaser.id,
-        name: ticket.purchaser.full_name, // Updated to use full_name instead of fullname
+        name: ticket.purchaser.fullname,
       },
       participants: ticket.participants.map((p: any) => ({
         id: p.id,
-        name: p.full_name, // Updated to use full_name instead of fullname
+        name: p.fullname,
         birthdate: formatDate(p.birthdate, "YYYY-MM-DD"),
         gender: p.gender,
         certificateValidated: p.certificate_validated,

@@ -3,22 +3,9 @@
     <Drawer :open="open" @update:open="(value) => $emit('update:open', value)">
       <DrawerContent class="max-h-[90vh]">
         <DrawerHeader>
-          <DrawerTitle>Register for {{ race?.name }}</DrawerTitle>
+          <DrawerTitle class="text-xl font-semibold">Register for {{ race?.name }}</DrawerTitle>
           <DrawerDescription>
-            <div class="flex flex-col gap-1 text-sm">
-              <div class="flex items-center gap-2">
-                <CalendarIcon class="h-4 w-4" />
-                <span>{{ formatDate(race?.date) }}</span>
-              </div>
-              <div class="flex items-center gap-2">
-                <MoveRightIcon class="h-4 w-4" />
-                <span>{{ race?.distance_km }} km</span>
-              </div>
-              <div class="flex items-center gap-2">
-                <TagIcon class="h-4 w-4" />
-                <span>{{ formatPrice(race?.price_cents, race?.currency) }}</span>
-              </div>
-            </div>
+            <span class="text-sm font-medium">{{ formatPrice(race?.price_cents, race?.currency) }}</span>
           </DrawerDescription>
         </DrawerHeader>
         
@@ -26,12 +13,12 @@
           <div class="space-y-4">
             <!-- Step 1: Number of Participants -->
             <div v-if="currentStep === 0">
-              <div class="mb-4">
-                <h3 class="text-lg font-semibold">Step 1: Number of Participants</h3>
+              <div class="mb-6">
+                <h3 class="text-xl font-semibold mb-2">Number of Participants</h3>
                 <p class="text-sm text-muted-foreground">How many people are you registering?</p>
               </div>
               
-              <div class="space-y-4">
+              <div class="space-y-6">
                 <div>
                   <Label for="participantCount">Number of participants</Label>
                   <Input 
@@ -51,14 +38,14 @@
             
             <!-- Step 2: Participant Details -->
             <div v-if="currentStep === 1">
-              <div class="mb-4">
-                <h3 class="text-lg font-semibold">Step 2: Participant Details</h3>
+              <div class="mb-6">
+                <h3 class="text-xl font-semibold mb-2">Participant Details</h3>
                 <p class="text-sm text-muted-foreground">Fill in the details for each participant</p>
               </div>
               
               <div class="space-y-6">
                 <Tabs v-model="activeTab" class="w-full">
-                  <TabsList class="w-full mb-2">
+                  <TabsList class="w-full mb-4">
                     <TabsTrigger 
                       v-for="(_, index) in participants" 
                       :key="index" 
@@ -133,23 +120,20 @@
                   </div>
                 </Tabs>
                 
-                <div class="flex gap-3">
-                  <Button variant="outline" class="flex-1" @click="prevStep">Back</Button>
-                  <Button class="flex-1" @click="nextStep">Continue</Button>
-                </div>
+                <Button class="w-full" @click="nextStep">Continue</Button>
               </div>
             </div>
             
             <!-- Step 3: Optional Extras -->
             <div v-if="currentStep === 2">
-              <div class="mb-4">
-                <h3 class="text-lg font-semibold">Step 3: Optional Extras</h3>
+              <div class="mb-6">
+                <h3 class="text-xl font-semibold mb-2">Optional Extras</h3>
                 <p class="text-sm text-muted-foreground">Select any optional extras</p>
               </div>
               
               <div class="space-y-6">
                 <Tabs v-model="activeTab" class="w-full">
-                  <TabsList class="w-full mb-2">
+                  <TabsList class="w-full mb-4">
                     <TabsTrigger 
                       v-for="(_, index) in participants" 
                       :key="index" 
@@ -187,22 +171,7 @@
                   </div>
                 </Tabs>
                 
-                <div class="flex gap-3">
-                  <Button variant="outline" class="flex-1" @click="prevStep">Back</Button>
-                  <Button class="flex-1" @click="addToCart">Add to Cart</Button>
-                </div>
-              </div>
-            </div>
-            
-            <!-- Step indicators -->
-            <div class="flex justify-center mt-6">
-              <div class="flex gap-2">
-                <div 
-                  v-for="step in 3" 
-                  :key="step" 
-                  class="w-3 h-3 rounded-full transition-colors"
-                  :class="currentStep === step - 1 ? 'bg-primary' : 'bg-muted'"
-                ></div>
+                <Button class="w-full" @click="addToCart">Add to Cart</Button>
               </div>
             </div>
           </div>
@@ -215,11 +184,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, watch } from 'vue'
 import { useCartStore, type CartParticipant } from '~/stores/cart'
-import { 
-  CalendarIcon, 
-  MoveRightIcon,
-  TagIcon
-} from 'lucide-vue-next'
+import { CalendarIcon } from 'lucide-vue-next'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import {
   Drawer,
@@ -368,11 +333,12 @@ const addToCart = () => {
     id: cartStore.generateId(),
     raceId: props.race.id,
     raceName: props.race.name,
-    raceDate: props.race.date,
+    raceDate: props.race.start_time,
     distance: props.race.distance_km,
     price: props.race.price_cents,
     currency: props.race.currency || 'EUR',
-    participants: [...participants.value]
+    participants: [...participants.value],
+    organizationId: props.race.organizationId
   })
   
   // Reset form

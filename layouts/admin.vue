@@ -96,7 +96,7 @@ const isActive = (path: string) => {
 }
 </script>
 
-<script>
+<script lang="ts">
 // Make sure we expose this component as a layout
 export default {
   name: 'AdminLayout'

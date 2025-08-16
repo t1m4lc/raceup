@@ -99,18 +99,45 @@ const fetchEvents = async () => {
   error.value = ''
   
   try {
-    const { data, error: err } = await client
+    // Try the new simplified schema first
+    let { data, error: err } = await client
       .from('events')
       .select('*')
       .order('start_date', { ascending: true })
       .gte('end_date', new Date().toISOString()) // Only upcoming events
     
-    if (err) throw err
+    // If that fails, try the old complex schema
+    if (err) {
+      console.log('Trying old schema with event_editions...')
+      const { data: editionsData, error: editionsErr } = await client
+        .from('event_editions')
+        .select(`
+          id, name, description, start_date, end_date, location, slug,
+          event_root:event_roots(
+            organization:organizations(*)
+          )
+        `)
+        .order('start_date', { ascending: true })
+        .gte('end_date', new Date().toISOString())
+      
+      if (editionsErr) throw editionsErr
+      
+      // Transform the data to match expected format
+      data = editionsData?.map(edition => ({
+        id: edition.id,
+        name: edition.name,
+        description: edition.description,
+        start_date: edition.start_date,
+        end_date: edition.end_date,
+        location: edition.location,
+        slug: edition.slug
+      })) || []
+    }
     
     events.value = data || []
   } catch (err) {
     console.error('Error fetching events:', err)
-    error.value = 'Failed to load events'
+    error.value = 'Failed to load events. Please check your database setup.'
   } finally {
     loading.value = false
   }

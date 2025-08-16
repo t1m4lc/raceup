@@ -14,104 +14,113 @@ export type Database = {
   }
   public: {
     Tables: {
-      event_volunteers: {
+      events: {
         Row: {
+          banner_url: string | null
           created_at: string | null
-          event_id: string
+          description: string | null
+          end_date: string
           id: string
-          volunteer_id: string
+          location: string
+          logo_url: string | null
+          name: string
+          organization_id: string
+          previous_event_id: string | null
+          slug: string
+          start_date: string
+          updated_at: string | null
         }
         Insert: {
+          banner_url?: string | null
           created_at?: string | null
-          event_id: string
+          description?: string | null
+          end_date: string
           id?: string
-          volunteer_id: string
+          location: string
+          logo_url?: string | null
+          name: string
+          organization_id: string
+          previous_event_id?: string | null
+          slug: string
+          start_date: string
+          updated_at?: string | null
         }
         Update: {
+          banner_url?: string | null
           created_at?: string | null
-          event_id?: string
+          description?: string | null
+          end_date?: string
           id?: string
-          volunteer_id?: string
+          location?: string
+          logo_url?: string | null
+          name?: string
+          organization_id?: string
+          previous_event_id?: string | null
+          slug?: string
+          start_date?: string
+          updated_at?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "event_volunteers_event_id_fkey"
-            columns: ["event_id"]
+            foreignKeyName: "events_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "events_previous_event_id_fkey"
+            columns: ["previous_event_id"]
             isOneToOne: false
             referencedRelation: "events"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "event_volunteers_volunteer_id_fkey"
-            columns: ["volunteer_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
         ]
       }
-      events: {
+      organizations: {
         Row: {
+          banner_url: string | null
           created_at: string | null
           description: string | null
-          end_date: string
-          facebook_url: string | null
+          founder_id: string
           id: string
-          instagram_url: string | null
-          location: string
-          location_map_url: string | null
           logo_url: string | null
           name: string
-          organizer_id: string
-          practical_info: Json | null
           slug: string
-          start_date: string
-          stripe_account_id: string
+          stripe_account_id: string | null
           updated_at: string | null
-          website_url: string | null
+          volunteers: string[] | null
         }
         Insert: {
+          banner_url?: string | null
           created_at?: string | null
           description?: string | null
-          end_date: string
-          facebook_url?: string | null
+          founder_id: string
           id?: string
-          instagram_url?: string | null
-          location: string
-          location_map_url?: string | null
           logo_url?: string | null
           name: string
-          organizer_id: string
-          practical_info?: Json | null
           slug: string
-          start_date: string
-          stripe_account_id: string
+          stripe_account_id?: string | null
           updated_at?: string | null
-          website_url?: string | null
+          volunteers?: string[] | null
         }
         Update: {
+          banner_url?: string | null
           created_at?: string | null
           description?: string | null
-          end_date?: string
-          facebook_url?: string | null
+          founder_id?: string
           id?: string
-          instagram_url?: string | null
-          location?: string
-          location_map_url?: string | null
           logo_url?: string | null
           name?: string
-          organizer_id?: string
-          practical_info?: Json | null
           slug?: string
-          start_date?: string
-          stripe_account_id?: string
+          stripe_account_id?: string | null
           updated_at?: string | null
-          website_url?: string | null
+          volunteers?: string[] | null
         }
         Relationships: [
           {
-            foreignKeyName: "events_organizer_id_fkey"
-            columns: ["organizer_id"]
+            foreignKeyName: "organizations_founder_id_fkey"
+            columns: ["founder_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -169,6 +178,9 @@ export type Database = {
         Row: {
           amount_cents: number
           application_fee_cents: number
+          commission_allocation: Json | null
+          commission_fixed_cents: number | null
+          commission_variable_cents: number | null
           created_at: string | null
           id: string
           status: string
@@ -180,6 +192,9 @@ export type Database = {
         Insert: {
           amount_cents: number
           application_fee_cents: number
+          commission_allocation?: Json | null
+          commission_fixed_cents?: number | null
+          commission_variable_cents?: number | null
           created_at?: string | null
           id?: string
           status: string
@@ -191,6 +206,9 @@ export type Database = {
         Update: {
           amount_cents?: number
           application_fee_cents?: number
+          commission_allocation?: Json | null
+          commission_fixed_cents?: number | null
+          commission_variable_cents?: number | null
           created_at?: string | null
           id?: string
           status?: string
@@ -213,85 +231,73 @@ export type Database = {
         Row: {
           avatar_url: string | null
           created_at: string | null
+          email: string | null
           full_name: string | null
           id: string
-          roles: string[]
+          phone: string | null
           updated_at: string | null
         }
         Insert: {
           avatar_url?: string | null
           created_at?: string | null
+          email?: string | null
           full_name?: string | null
           id: string
-          roles?: string[]
+          phone?: string | null
           updated_at?: string | null
         }
         Update: {
           avatar_url?: string | null
           created_at?: string | null
+          email?: string | null
           full_name?: string | null
           id?: string
-          roles?: string[]
+          phone?: string | null
           updated_at?: string | null
         }
         Relationships: []
       }
       races: {
         Row: {
-          aid_stations: number | null
           created_at: string | null
           currency: string
-          date: string
-          description: string | null
           distance_km: number
-          elevation_gain: number | null
+          elevation_m: number | null
           event_id: string
           id: string
           max_participants: number | null
           name: string
           price_cents: number
-          registration_open: boolean | null
-          route_map_url: string | null
-          rules: string | null
           slug: string
+          start_time: string
           updated_at: string | null
         }
         Insert: {
-          aid_stations?: number | null
           created_at?: string | null
           currency?: string
-          date: string
-          description?: string | null
           distance_km: number
-          elevation_gain?: number | null
+          elevation_m?: number | null
           event_id: string
           id?: string
           max_participants?: number | null
           name: string
           price_cents: number
-          registration_open?: boolean | null
-          route_map_url?: string | null
-          rules?: string | null
           slug: string
+          start_time: string
           updated_at?: string | null
         }
         Update: {
-          aid_stations?: number | null
           created_at?: string | null
           currency?: string
-          date?: string
-          description?: string | null
           distance_km?: number
-          elevation_gain?: number | null
+          elevation_m?: number | null
           event_id?: string
           id?: string
           max_participants?: number | null
           name?: string
           price_cents?: number
-          registration_open?: boolean | null
-          route_map_url?: string | null
-          rules?: string | null
           slug?: string
+          start_time?: string
           updated_at?: string | null
         }
         Relationships: [
@@ -306,42 +312,42 @@ export type Database = {
       }
       tickets: {
         Row: {
+          buyer_id: string
           created_at: string | null
-          currency: string
           id: string
-          purchaser_id: string
+          quantity: number
           race_id: string
-          status: string
+          status: string | null
           stripe_payment_intent_id: string | null
           total_price_cents: number
           updated_at: string | null
         }
         Insert: {
+          buyer_id: string
           created_at?: string | null
-          currency?: string
           id?: string
-          purchaser_id: string
+          quantity?: number
           race_id: string
-          status?: string
+          status?: string | null
           stripe_payment_intent_id?: string | null
           total_price_cents: number
           updated_at?: string | null
         }
         Update: {
+          buyer_id?: string
           created_at?: string | null
-          currency?: string
           id?: string
-          purchaser_id?: string
+          quantity?: number
           race_id?: string
-          status?: string
+          status?: string | null
           stripe_payment_intent_id?: string | null
           total_price_cents?: number
           updated_at?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "tickets_purchaser_id_fkey"
-            columns: ["purchaser_id"]
+            foreignKeyName: "tickets_buyer_id_fkey"
+            columns: ["buyer_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -360,10 +366,25 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      clean_slug: {
+        Args: { input_text: string }
+        Returns: string
+      }
+      generate_slug: {
+        Args: { input_text: string }
+        Returns: string
+      }
+      generate_unique_edition_slug: {
+        Args: { event_name: string; year: number }
+        Returns: string
+      }
+      generate_unique_slug: {
+        Args: { base_slug: string; id_to_exclude?: string; table_name: string }
+        Returns: string
+      }
     }
     Enums: {
-      [_ in never]: never
+      register_state_enum: "not_open" | "open" | "closed"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -490,6 +511,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      register_state_enum: ["not_open", "open", "closed"],
+    },
   },
 } as const

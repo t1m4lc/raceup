@@ -50,8 +50,17 @@
             class="mt-4 md:mt-0" 
             @click="scrollToRaces"
           >
-            Register
+            Register Now
             <ChevronDownIcon class="ml-2 h-4 w-4" />
+          </Button>
+          <Button 
+            v-else 
+            size="lg" 
+            variant="secondary"
+            disabled
+            class="mt-4 md:mt-0"
+          >
+            Registration Closed
           </Button>
         </div>
       </section>
@@ -73,12 +82,12 @@
           <!-- Races Section -->
           <div id="races-section" class="mb-8">
             <h2 class="text-2xl font-semibold mb-4">Available Races</h2>
-            <div v-if="races.length === 0" class="text-center py-8 border rounded-lg bg-muted/20">
+            <div v-if="racesWithState.length === 0" class="text-center py-8 border rounded-lg bg-muted/20">
               <p class="text-muted-foreground">No races are currently available for this event.</p>
             </div>
             
             <div v-else class="space-y-4">
-              <Card v-for="race in races" :key="race.id" class="overflow-hidden transition-shadow hover:shadow-md">
+              <Card v-for="race in racesWithState" :key="race.id" class="overflow-hidden transition-shadow hover:shadow-md">
                 <div class="p-4 flex flex-col justify-between">
                   <div>
                     <div class="flex justify-between items-start mb-2">
@@ -89,23 +98,21 @@
                     <div class="flex flex-wrap gap-2 text-sm text-muted-foreground mb-4">
                       <div class="flex items-center gap-2">
                         <CalendarIcon class="h-4 w-4" />
-                        <span>{{ formatDate(race.date) }}</span>
+                        <span>{{ formatDate(race.start_time || event.start_date) }}</span>
                       </div>
                       <div class="flex items-center gap-2">
-                        <MoveRightIcon class="h-4 w-4" />
+                        <RulerIcon class="h-4 w-4" />
                         <span>{{ race.distance_km }} km</span>
                       </div>
-                      <div v-if="race.elevation_gain" class="flex items-center gap-2">
+                      <div v-if="race.elevation_m" class="flex items-center gap-2">
                         <MountainIcon class="h-4 w-4" />
-                        <span>{{ race.elevation_gain }}m D+</span>
+                        <span>{{ race.elevation_m }}m D+</span>
                       </div>
                     </div>
                     
                     <p v-if="race.description" class="line-clamp-2 text-muted-foreground mb-4">
                       {{ race.description }}
                     </p>
-                    
-                    <!-- Registration status removed, we'll show tooltips on buttons instead -->
                   </div>
                   
                   <div class="flex gap-2">
@@ -114,7 +121,7 @@
                         View race
                       </Button>
                     </NuxtLink>
-                    <TooltipProvider>
+                    <TooltipProvider v-if="race.register_tooltip">
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <div class="flex-grow">
@@ -123,18 +130,24 @@
                               @click="race.register_state === 'open' ? openRegistrationDrawer(race) : null"
                               :disabled="race.register_state !== 'open'"
                             >
-                              Register
+                              {{ race.register_label }}
                             </Button>
                           </div>
                         </TooltipTrigger>
-                        <TooltipContent v-if="race.register_state === 'not_open'">
-                          Registration not yet open
-                        </TooltipContent>
-                        <TooltipContent v-else-if="race.register_state === 'closed'">
-                          Registration is closed
+                        <TooltipContent>
+                          {{ race.register_tooltip }}
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
+                    <div v-else class="flex-grow">
+                      <Button 
+                        class="w-full" 
+                        @click="race.register_state === 'open' ? openRegistrationDrawer(race) : null"
+                        :disabled="race.register_state !== 'open'"
+                      >
+                        {{ race.register_label }}
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </Card>
@@ -234,6 +247,44 @@
               </div>
             </CardContent>
           </Card>
+          
+          <!-- Organization Team -->
+          <Card v-if="event?.organization?.members?.length > 0">
+            <CardHeader>
+              <CardTitle>Organization Team</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div class="space-y-4">
+                <!-- Founders -->
+                <div v-if="founders.length > 0" class="mb-4">
+                  <h3 class="text-sm font-medium text-muted-foreground mb-2">Founders</h3>
+                  <div class="flex flex-wrap gap-3">
+                    <div v-for="founder in founders" :key="founder.profile.id" class="flex items-center gap-2">
+                      <Avatar class="h-7 w-7">
+                        <AvatarImage v-if="founder.profile.avatar_url" :src="founder.profile.avatar_url" :alt="founder.profile.full_name" />
+                        <AvatarFallback>{{ founder.profile.full_name.substring(0, 2).toUpperCase() }}</AvatarFallback>
+                      </Avatar>
+                      <span class="text-sm">{{ founder.profile.full_name }}</span>
+                    </div>
+                  </div>
+                </div>
+                
+                <!-- Volunteers -->
+                <div v-if="volunteers.length > 0">
+                  <h3 class="text-sm font-medium text-muted-foreground mb-2">Volunteers</h3>
+                  <div class="flex flex-wrap gap-3">
+                    <div v-for="volunteer in volunteers" :key="volunteer.profile.id" class="flex items-center gap-2">
+                      <Avatar class="h-7 w-7">
+                        <AvatarImage v-if="volunteer.profile.avatar_url" :src="volunteer.profile.avatar_url" :alt="volunteer.profile.full_name" />
+                        <AvatarFallback>{{ volunteer.profile.full_name.substring(0, 2).toUpperCase() }}</AvatarFallback>
+                      </Avatar>
+                      <span class="text-sm">{{ volunteer.profile.full_name }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>
@@ -241,7 +292,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed, watch } from 'vue'
+import { ref, onMounted, onBeforeUnmount, computed, watch } from 'vue'
 import { useRoute, useRouter } from '#imports'
 import { useInterval } from '@vueuse/core'
 import { 
@@ -256,7 +307,7 @@ import {
   MailIcon, 
   MapPinIcon, 
   MountainIcon,
-  MoveRightIcon 
+  RulerIcon 
 } from 'lucide-vue-next'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -290,12 +341,64 @@ const countdown = ref({
 
 // Computed properties
 const hasActiveRaces = computed(() => {
-  return races.value?.some(race => race.register_state === 'open') || false
+  return racesWithState.value.some(race => race.register_state === 'open')
+})
+
+// Enhanced races with registration state
+const racesWithState = computed(() => {
+  if (!races.value?.length) return []
+  
+  const now = $dayjs()
+  
+  return races.value.map(race => {
+    const raceTime = race.start_time ? $dayjs(race.start_time) : $dayjs(event.value?.start_date)
+    
+    let register_state = 'closed'
+    let register_label = 'Registration Closed'
+    let register_tooltip = 'Registration is closed'
+    
+    if (raceTime.isAfter(now)) {
+      // Race is in the future
+      const hoursUntilRace = raceTime.diff(now, 'hour')
+      
+      if (hoursUntilRace > 2) {
+        // Registration is open (closes 2 hours before race)
+        register_state = 'open'
+        register_label = 'Register'
+        register_tooltip = null
+      } else {
+        // Registration closed (less than 2 hours before race)
+        register_state = 'closed'
+        register_label = 'Registration Closed'
+        register_tooltip = 'Registration closes 2 hours before race start'
+      }
+    } else {
+      // Race has passed
+      register_state = 'finished'
+      register_label = 'Race Finished'
+      register_tooltip = 'This race has already finished'
+    }
+    
+    return {
+      ...race,
+      register_state,
+      register_label,
+      register_tooltip
+    }
+  })
 })
 
 const isEventUpcoming = computed(() => {
   if (!event.value?.start_date) return false
   return $dayjs(event.value.start_date).isAfter($dayjs())
+})
+
+const founders = computed(() => {
+  return event.value?.organization?.members?.filter(m => m.role === 'founder' && m.profile) || []
+})
+
+const volunteers = computed(() => {
+  return event.value?.organization?.members?.filter(m => m.role === 'volunteer' && m.profile) || []
 })
 
 // Format date
@@ -361,24 +464,92 @@ const fetchEventData = async () => {
   error.value = ''
   
   try {
-    // Fetch event details
+    console.log('Fetching event with slug:', eventSlug.value) // Debug log
+    
+    // Fetch event details - use maybeSingle() instead of single() to prevent the "Cannot coerce" error
     const { data: eventData, error: eventError } = await client
       .from('events')
-      .select('*')
+      .select(`
+        *,
+        organization:organizations(*)
+      `)
       .eq('slug', eventSlug.value)
-      .single()
+      .maybeSingle() // This won't throw an error if no results are found
     
+    // Debug logging
+    console.log('Event data query result:', eventData ? 'Found' : 'Not found', 'Error:', eventError)
+    
+    // Check for errors or no data
     if (eventError) throw eventError
     if (!eventData) throw new Error('Événement introuvable')
     
-    event.value = eventData
+    event.value = {
+      ...eventData,
+      id: eventData.id,
+      name: eventData.name,
+      description: eventData.description,
+      start_date: eventData.start_date,
+      end_date: eventData.end_date,
+      location: eventData.location,
+      stripe_account_id: eventData.organization.stripe_account_id,
+      logo_url: eventData.organization.logo_url,
+      banner_url: eventData.organization.banner_url,
+      organization: eventData.organization
+    }
+    
+    // Fetch founder and volunteer profiles
+    if (event.value.organization) {
+      const profileIds = [event.value.organization.founder_id, ...(event.value.organization.volunteers || [])]
+      if (profileIds.length > 0) {
+        const { data: profilesData } = await client
+          .from('profiles')
+          .select('*')
+          .in('id', profileIds)
+        
+        if (profilesData) {
+          // Create members array with roles
+          const members = []
+          
+          // Add founder
+              const founder = profilesData.find(p => p.id === event.value.organization.founder_id)
+              if (founder) {
+                members.push({
+                  role: 'founder',
+                  profile: {
+                    id: founder.id,
+                    full_name: founder.full_name,
+                    avatar_url: founder.avatar_url
+                  }
+                })
+              }
+              
+              // Add volunteers
+              if (event.value.organization.volunteers) {
+                event.value.organization.volunteers.forEach(volunteerId => {
+                  const volunteer = profilesData.find(p => p.id === volunteerId)
+                  if (volunteer) {
+                    members.push({
+                      role: 'volunteer',
+                      profile: {
+                        id: volunteer.id,
+                        full_name: volunteer.full_name,
+                        avatar_url: volunteer.avatar_url
+                      }
+                    })
+                  }
+                })
+              }          // Add members to organization
+          event.value.organization.members = members
+        }
+      }
+    }
     
     // Fetch races for this event
     const { data: racesData, error: racesError } = await client
       .from('races')
       .select('*')
       .eq('event_id', event.value.id)
-      .order('date', { ascending: true })
+      .order('start_time', { ascending: true })
     
     if (racesError) throw racesError
     

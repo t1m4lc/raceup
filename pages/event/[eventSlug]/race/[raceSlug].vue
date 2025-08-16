@@ -13,8 +13,8 @@
     </div>
     
     <div v-else>
-      <!-- Registration Drawer -->
-      <RaceRegistrationDrawer 
+      <!-- Registration Dialog/Drawer -->
+      <RaceRegistrationDialog 
         v-model:open="isRegistrationDrawerOpen" 
         :race="race" 
         @added-to-cart="handleAddedToCart" 
@@ -38,8 +38,8 @@
               <TooltipTrigger asChild>
                 <div>
                   <Button 
-                    @click="race.register_state === 'open' ? openRegistrationDrawer() : null"
-                    :disabled="race.register_state !== 'open'"
+                    @click="registrationState === 'open' ? openRegistrationDrawer() : null"
+                    :disabled="registrationState !== 'open'"
                     size="sm"
                   >
                     Register
@@ -47,10 +47,10 @@
                   </Button>
                 </div>
               </TooltipTrigger>
-              <TooltipContent v-if="race.register_state === 'not_open'">
+              <TooltipContent v-if="registrationState === 'not_open'">
                 Registration not yet open
               </TooltipContent>
-              <TooltipContent v-else-if="race.register_state === 'closed'">
+              <TooltipContent v-else-if="registrationState === 'closed'">
                 Registration is closed
               </TooltipContent>
             </Tooltip>
@@ -67,7 +67,7 @@
             <div class="flex flex-wrap items-center gap-x-4 gap-y-2 text-muted-foreground">
               <div class="flex items-center gap-2">
                 <CalendarIcon class="h-4 w-4" />
-                <span>{{ formatDate(race.date) }}</span>
+                <span>{{ formatDate(race.start_time) }}</span>
               </div>
               <div class="flex items-center gap-2">
                 <MapPinIcon class="h-4 w-4" />
@@ -76,23 +76,7 @@
             </div>
           </div>
           
-          <div class="flex flex-wrap items-center gap-3">
-            <Badge variant="outline" class="text-base font-medium px-3 py-1.5">
-              {{ formatPrice(race.price_cents, race.currency) }}
-            </Badge>
-            
-            <Badge variant="secondary" class="text-base font-medium px-3 py-1.5">
-              {{ race.distance_km }} km
-            </Badge>
-            
-            <Badge 
-              v-if="remainingSpots !== null" 
-              :variant="remainingSpots < 10 ? 'destructive' : 'outline'"
-              class="text-base font-medium px-3 py-1.5"
-            >
-              {{ remainingSpots }} {{ remainingSpots === 1 ? 'spot' : 'spots' }} left
-            </Badge>
-          </div>
+          <!-- Badges removed - information is available in technical details section -->
         </div>
       </div>
 
@@ -114,7 +98,7 @@
                   <CardTitle>About this race</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p class="whitespace-pre-line">{{ race.description || 'No description available.' }}</p>
+                  <p class="whitespace-pre-line">{{ race.description || 'No description available yet.' }}</p>
                 </CardContent>
               </Card>
               
@@ -130,16 +114,10 @@
                       <div class="font-bold text-lg">{{ race.distance_km }} km</div>
                     </div>
                     
-                    <div v-if="race.elevation_gain" class="flex flex-col items-center p-4 bg-muted rounded-lg">
+                    <div v-if="race.elevation_m" class="flex flex-col items-center p-4 bg-muted rounded-lg">
                       <MountainIcon class="h-6 w-6 mb-2 text-primary" />
                       <div class="text-sm text-muted-foreground">Elevation gain</div>
-                      <div class="font-bold text-lg">{{ race.elevation_gain }} m</div>
-                    </div>
-                    
-                    <div v-if="race.aid_stations" class="flex flex-col items-center p-4 bg-muted rounded-lg">
-                      <CupSodaIcon class="h-6 w-6 mb-2 text-primary" />
-                      <div class="text-sm text-muted-foreground">Aid stations</div>
-                      <div class="font-bold text-lg">{{ race.aid_stations }}</div>
+                      <div class="font-bold text-lg">{{ race.elevation_m }} m</div>
                     </div>
                     
                     <div v-if="race.max_participants" class="flex flex-col items-center p-4 bg-muted rounded-lg">
@@ -169,22 +147,23 @@
                     </AspectRatio>
                   </div>
                   <div v-else class="bg-muted flex items-center justify-center rounded-lg h-64">
-                    <p class="text-muted-foreground">Course map not available</p>
+                    <p class="text-muted-foreground">Course map will be available soon</p>
                   </div>
                 </CardContent>
               </Card>
               
+              <!-- Aid stations card hidden until field is added to schema -->
+              <!-- 
               <Card v-if="race.aid_stations">
                 <CardHeader>
                   <CardTitle>Aid Stations</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <p class="mb-4">This race has {{ race.aid_stations }} aid station{{ race.aid_stations > 1 ? 's' : '' }}.</p>
-                  
-                  <!-- Placeholder for detailed aid station info - would need to be added to schema -->
                   <p class="text-muted-foreground">Check the race rules section for details about aid stations.</p>
                 </CardContent>
               </Card>
+              -->
             </TabsContent>
             
             <!-- Tab Content: Rules -->
@@ -206,7 +185,7 @@
                     <div v-html="formatRules(race.rules)"></div>
                   </div>
                   <div v-else>
-                    <p>Complete rules will be available soon.</p>
+                    <p>Race rules will be provided closer to the event date.</p>
                   </div>
                 </CardContent>
               </Card>
@@ -223,7 +202,7 @@
             </CardHeader>
             <CardContent>
               <div class="flex justify-between items-center mb-4">
-                <span>Registration fee</span>
+                <span>Price</span>
                 <span class="font-bold">{{ formatPrice(race.price_cents, race.currency) }}</span>
               </div>
               
@@ -235,7 +214,7 @@
                 </div>
               </div>
               
-              <Alert v-if="race.registration_open === false" variant="destructive" class="mb-4">
+              <Alert v-if="registrationState === 'closed'" variant="destructive" class="mb-4">
                 <BanIcon class="h-4 w-4" />
                 <AlertTitle>Registration closed</AlertTitle>
                 <AlertDescription>
@@ -259,17 +238,17 @@
                         <Button 
                           class="w-full" 
                           size="lg" 
-                          :disabled="race.register_state !== 'open' || (remainingSpots !== null && remainingSpots <= 0)"
+                          :disabled="registrationState !== 'open' || (remainingSpots !== null && remainingSpots <= 0)"
                           @click="openRegistrationDrawer"
                         >
                           Register now
                         </Button>
                       </div>
                     </TooltipTrigger>
-                    <TooltipContent v-if="race.register_state === 'not_open'">
+                    <TooltipContent v-if="registrationState === 'not_open'">
                       Registration not yet open
                     </TooltipContent>
-                    <TooltipContent v-else-if="race.register_state === 'closed'">
+                    <TooltipContent v-else-if="registrationState === 'closed'">
                       Registration is closed
                     </TooltipContent>
                     <TooltipContent v-else-if="remainingSpots !== null && remainingSpots <= 0">
@@ -370,12 +349,14 @@ import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import RaceRegistrationDrawer from '@/components/cart/RaceRegistrationDrawer.vue'
+import RaceRegistrationDialog from '@/components/cart/RaceRegistrationDialog.vue'
+import { useCartStore } from '@/stores/cart'
 
 const route = useRoute()
 const router = useRouter()
 const { $dayjs } = useNuxtApp()
 const client = useSupabaseClient()
+const cartStore = useCartStore()
 
 const eventSlug = computed(() => route.params.eventSlug as string)
 const raceSlug = computed(() => route.params.raceSlug as string)
@@ -392,6 +373,22 @@ const participationPercentage = computed(() => {
   if (!race.value?.max_participants || remainingSpots.value === null) return 0
   const taken = race.value.max_participants - remainingSpots.value
   return Math.floor((taken / race.value.max_participants) * 100)
+})
+
+const registrationState = computed(() => {
+  if (!race.value) return 'not_open'
+  
+  const now = new Date()
+  const raceStart = new Date(race.value.start_time)
+  
+  // Race has started or passed
+  if (now >= raceStart) return 'closed'
+  
+  // Race is full
+  if (remainingSpots.value !== null && remainingSpots.value <= 0) return 'closed'
+  
+  // Race is open for registration
+  return 'open'
 })
 
 // Format date
@@ -441,11 +438,22 @@ const fetchRaceData = async () => {
   error.value = ''
   
   try {
-    // Fetch race details
+    // First, fetch the event to get its ID
+    const { data: eventLookup, error: eventLookupError } = await client
+      .from('events')
+      .select('id')
+      .eq('slug', eventSlug.value)
+      .single()
+    
+    if (eventLookupError) throw eventLookupError
+    if (!eventLookup) throw new Error('Event not found')
+    
+    // Now fetch race details with the event_id filter
     const { data: raceData, error: raceError } = await client
       .from('races')
       .select('*')
       .eq('slug', raceSlug.value)
+      .eq('event_id', (eventLookup as any).id)
       .single()
     
     if (raceError) throw raceError
@@ -453,17 +461,26 @@ const fetchRaceData = async () => {
     
     race.value = raceData
     
-    // Fetch event details
+    // Fetch event details with organization
     const { data: eventData, error: eventError } = await client
       .from('events')
-      .select('*')
+      .select(`
+        *,
+        organization:organizations(*)
+      `)
       .eq('id', race.value.event_id)
       .single()
     
     if (eventError) throw eventError
     if (!eventData) throw new Error('Event not found')
     
-    event.value = eventData as any // Type assertion to bypass TypeScript error
+    // Map the event data correctly
+    event.value = {
+      ...(eventData as any),
+      stripe_account_id: (eventData as any).organization?.stripe_account_id,
+      logo_url: (eventData as any).organization?.logo_url || (eventData as any).logo_url,
+      banner_url: (eventData as any).organization?.banner_url || (eventData as any).banner_url
+    }
     
     // Check if event slug matches
     if (event.value.slug !== eventSlug.value) {
@@ -500,6 +517,7 @@ const openRegistrationDrawer = () => {
 // Handle added to cart event
 const handleAddedToCart = () => {
   isRegistrationDrawerOpen.value = false
+  cartStore.openCart()
 }
 
 onMounted(() => {

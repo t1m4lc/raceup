@@ -1,283 +1,261 @@
--- RaceUp MVP Database Schema
+-- RaceUp Database Schema
+-- This file creates the necessary tables and policies for the race ticketing platform
 
--- PROFILES TABLE
--- Extends the auth.users table with additional profile information
+-- Enable UUID extension
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- Enable Row Level Security on all tables by default
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO postgres, anon, authenticated, service_role;
+
+-- Create profiles table (extends auth.users)
 CREATE TABLE IF NOT EXISTS profiles (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  auth_user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  fullname TEXT NOT NULL,
-  roles TEXT[] NOT NULL DEFAULT '{}',
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  UNIQUE (auth_user_id)
+    id UUID REFERENCES auth.users ON DELETE CASCADE PRIMARY KEY,
+    full_name TEXT,
+    email TEXT UNIQUE,
+    phone TEXT,
+    avatar_url TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX profiles_auth_user_id_idx ON profiles (auth_user_id);
-CREATE INDEX profiles_roles_idx ON profiles USING GIN (roles);
+-- Create organizations table
+CREATE TABLE IF NOT EXISTS organizations (
+    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    name TEXT NOT NULL,
+    description TEXT,
+    founder_id UUID REFERENCES profiles(id) NOT NULL,
+    volunteers UUID[] DEFAULT '{}',
+    stripe_account_id TEXT,
+    logo_url TEXT,
+    banner_url TEXT,
+    slug TEXT UNIQUE NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
 
--- EVENTS TABLE
+-- Create events table
 CREATE TABLE IF NOT EXISTS events (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  organizer_id UUID NOT NULL REFERENCES profiles(id) ON DELETE RESTRICT,
-  slug TEXT NOT NULL UNIQUE,
-  name TEXT NOT NULL,
-  description TEXT,
-  start_date TIMESTAMP WITH TIME ZONE NOT NULL,
-  end_date TIMESTAMP WITH TIME ZONE NOT NULL,
-  location TEXT NOT NULL,
-  stripe_account_id TEXT NOT NULL,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE NOT NULL,
+    name TEXT NOT NULL,
+    description TEXT,
+    start_date TIMESTAMPTZ NOT NULL,
+    end_date TIMESTAMPTZ NOT NULL,
+    location TEXT NOT NULL,
+    previous_event_id UUID REFERENCES events(id),
+    logo_url TEXT,
+    banner_url TEXT,
+    slug TEXT UNIQUE NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX events_organizer_id_idx ON events (organizer_id);
-CREATE INDEX events_slug_idx ON events (slug);
-
--- RACES TABLE
+-- Create races table
 CREATE TABLE IF NOT EXISTS races (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  event_id UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
-  slug TEXT NOT NULL,
-  name TEXT NOT NULL,
-  description TEXT,
-  date TIMESTAMP WITH TIME ZONE NOT NULL,
-  distance_km DECIMAL(10, 2) NOT NULL,
-  price_cents INTEGER NOT NULL CHECK (price_cents >= 0),
-  currency TEXT NOT NULL DEFAULT 'EUR',
-  max_participants INTEGER,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  UNIQUE (event_id, slug)
+    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    event_id UUID REFERENCES events(id) ON DELETE CASCADE NOT NULL,
+    name TEXT NOT NULL,
+    distance_km DECIMAL NOT NULL,
+    elevation_m INTEGER,
+    start_time TIMESTAMPTZ NOT NULL,
+    price_cents INTEGER NOT NULL,
+    currency TEXT DEFAULT 'EUR' NOT NULL,
+    max_participants INTEGER,
+    slug TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(event_id, slug)
 );
 
-CREATE INDEX races_event_id_idx ON races (event_id);
-CREATE INDEX races_slug_idx ON races (slug);
-
--- EVENT_VOLUNTEERS TABLE
--- Junction table for volunteers assigned to events
-CREATE TABLE IF NOT EXISTS event_volunteers (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  event_id UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
-  volunteer_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  UNIQUE (event_id, volunteer_id)
-);
-
-CREATE INDEX event_volunteers_event_id_idx ON event_volunteers (event_id);
-CREATE INDEX event_volunteers_volunteer_id_idx ON event_volunteers (volunteer_id);
-
--- TICKETS TABLE
+-- Create tickets table
 CREATE TABLE IF NOT EXISTS tickets (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  race_id UUID NOT NULL REFERENCES races(id) ON DELETE RESTRICT,
-  purchaser_id UUID NOT NULL REFERENCES profiles(id) ON DELETE RESTRICT,
-  total_price_cents INTEGER NOT NULL CHECK (total_price_cents >= 0),
-  currency TEXT NOT NULL DEFAULT 'EUR',
-  stripe_payment_intent_id TEXT,
-  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'paid', 'canceled', 'refunded')),
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    race_id UUID REFERENCES races(id) NOT NULL,
+    buyer_id UUID REFERENCES profiles(id) NOT NULL,
+    quantity INTEGER NOT NULL DEFAULT 1,
+    total_price_cents INTEGER NOT NULL,
+    stripe_payment_intent_id TEXT,
+    status TEXT DEFAULT 'pending',
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX tickets_race_id_idx ON tickets (race_id);
-CREATE INDEX tickets_purchaser_id_idx ON tickets (purchaser_id);
-CREATE INDEX tickets_stripe_payment_intent_id_idx ON tickets (stripe_payment_intent_id);
-CREATE INDEX tickets_status_idx ON tickets (status);
-
--- PARTICIPANTS TABLE
+-- Create participants table
 CREATE TABLE IF NOT EXISTS participants (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  ticket_id UUID NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
-  fullname TEXT NOT NULL,
-  birthdate DATE NOT NULL,
-  gender TEXT NOT NULL CHECK (gender IN ('male', 'female', 'other')),
-  certificate_validated BOOLEAN DEFAULT FALSE,
-  certificate_url TEXT,
-  checkin_at TIMESTAMP WITH TIME ZONE,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    ticket_id UUID REFERENCES tickets(id) ON DELETE CASCADE NOT NULL,
+    full_name TEXT NOT NULL,
+    gender TEXT NOT NULL,
+    birthdate DATE NOT NULL,
+    certificate_url TEXT,
+    certificate_validated BOOLEAN DEFAULT FALSE,
+    checkin_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX participants_ticket_id_idx ON participants (ticket_id);
-CREATE INDEX participants_checkin_at_idx ON participants (checkin_at) WHERE checkin_at IS NOT NULL;
-
--- PAYMENTS TABLE
+-- Create payments table
 CREATE TABLE IF NOT EXISTS payments (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  ticket_id UUID NOT NULL REFERENCES tickets(id) ON DELETE RESTRICT,
-  amount_cents INTEGER NOT NULL CHECK (amount_cents >= 0),
-  application_fee_cents INTEGER NOT NULL CHECK (application_fee_cents >= 0),
-  stripe_payment_intent_id TEXT NOT NULL,
-  stripe_payment_method TEXT,
-  status TEXT NOT NULL CHECK (status IN ('pending', 'succeeded', 'failed', 'refunded')),
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  UNIQUE (stripe_payment_intent_id)
+    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    ticket_id UUID REFERENCES tickets(id) NOT NULL,
+    stripe_payment_intent_id TEXT UNIQUE NOT NULL,
+    amount_cents INTEGER NOT NULL,
+    application_fee_cents INTEGER NOT NULL,
+    commission_fixed_cents INTEGER,
+    commission_variable_cents INTEGER,
+    commission_allocation JSONB,
+    stripe_payment_method TEXT,
+    status TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
 );
-
-CREATE INDEX payments_ticket_id_idx ON payments (ticket_id);
-CREATE INDEX payments_stripe_payment_intent_id_idx ON payments (stripe_payment_intent_id);
-CREATE INDEX payments_status_idx ON payments (status);
-
--- ROW LEVEL SECURITY POLICIES
 
 -- Enable RLS on all tables
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE organizations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE races ENABLE ROW LEVEL SECURITY;
-ALTER TABLE event_volunteers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE tickets ENABLE ROW LEVEL SECURITY;
 ALTER TABLE participants ENABLE ROW LEVEL SECURITY;
 ALTER TABLE payments ENABLE ROW LEVEL SECURITY;
 
--- PROFILES POLICIES
-CREATE POLICY profiles_select_own ON profiles
-  FOR SELECT
-  USING (auth.uid() = auth_user_id);
+-- Basic RLS policies (can be refined later)
 
-CREATE POLICY profiles_insert_own ON profiles
-  FOR INSERT
-  WITH CHECK (auth.uid() = auth_user_id);
+-- Profiles: Users can read all profiles, update their own
+CREATE POLICY "Profiles are viewable by everyone" ON profiles FOR SELECT USING (true);
+CREATE POLICY "Users can update their own profile" ON profiles FOR UPDATE USING (auth.uid() = id);
+CREATE POLICY "Users can insert their own profile" ON profiles FOR INSERT WITH CHECK (auth.uid() = id);
 
-CREATE POLICY profiles_update_own ON profiles
-  FOR UPDATE
-  USING (auth.uid() = auth_user_id);
+-- Organizations: Everyone can read, founders can update their own
+CREATE POLICY "Organizations are viewable by everyone" ON organizations FOR SELECT USING (true);
+CREATE POLICY "Founders can update their organizations" ON organizations FOR UPDATE USING (auth.uid() = founder_id);
+CREATE POLICY "Authenticated users can create organizations" ON organizations FOR INSERT WITH CHECK (auth.uid() = founder_id);
 
--- EVENTS POLICIES
--- Organizers can manage their events
-CREATE POLICY events_select_all ON events
-  FOR SELECT
-  TO authenticated
-  USING (true);
+-- Events: Everyone can read, organization founders can manage
+CREATE POLICY "Events are viewable by everyone" ON events FOR SELECT USING (true);
+CREATE POLICY "Organization founders can manage events" ON events FOR ALL USING (
+    EXISTS (
+        SELECT 1 FROM organizations o
+        WHERE o.id = organization_id AND o.founder_id = auth.uid()
+    )
+);
 
-CREATE POLICY events_manage_as_organizer ON events
-  FOR ALL
-  USING (organizer_id IN (SELECT id FROM profiles WHERE auth_user_id = auth.uid()));
+-- Races: Everyone can read, event organization founders can manage
+CREATE POLICY "Races are viewable by everyone" ON races FOR SELECT USING (true);
+CREATE POLICY "Event organization founders can manage races" ON races FOR ALL USING (
+    EXISTS (
+        SELECT 1 FROM events e
+        JOIN organizations o ON o.id = e.organization_id
+        WHERE e.id = event_id AND o.founder_id = auth.uid()
+    )
+);
 
--- RACES POLICIES
-CREATE POLICY races_select_all ON races
-  FOR SELECT
-  TO authenticated
-  USING (true);
+-- Tickets: Users can see their own tickets, organization founders can see tickets for their events
+CREATE POLICY "Users can view their own tickets" ON tickets FOR SELECT USING (auth.uid() = buyer_id);
+CREATE POLICY "Organization founders can view tickets for their events" ON tickets FOR SELECT USING (
+    EXISTS (
+        SELECT 1 FROM races r
+        JOIN events e ON e.id = r.event_id
+        JOIN organizations o ON o.id = e.organization_id
+        WHERE r.id = race_id AND o.founder_id = auth.uid()
+    )
+);
+CREATE POLICY "Authenticated users can create tickets" ON tickets FOR INSERT WITH CHECK (auth.uid() = buyer_id);
 
-CREATE POLICY races_manage_as_organizer ON races
-  FOR ALL
-  USING (event_id IN (SELECT id FROM events WHERE organizer_id IN 
-    (SELECT id FROM profiles WHERE auth_user_id = auth.uid())));
+-- Participants: Users can manage participants for their tickets, organization founders can view participants for their events
+CREATE POLICY "Users can manage participants for their tickets" ON participants FOR ALL USING (
+    EXISTS (
+        SELECT 1 FROM tickets t
+        WHERE t.id = ticket_id AND t.buyer_id = auth.uid()
+    )
+);
+CREATE POLICY "Organization founders can view participants for their events" ON participants FOR SELECT USING (
+    EXISTS (
+        SELECT 1 FROM tickets t
+        JOIN races r ON r.id = t.race_id
+        JOIN events e ON e.id = r.event_id
+        JOIN organizations o ON o.id = e.organization_id
+        WHERE t.id = ticket_id AND o.founder_id = auth.uid()
+    )
+);
 
--- EVENT_VOLUNTEERS POLICIES
-CREATE POLICY event_volunteers_select_as_organizer ON event_volunteers
-  FOR SELECT
-  USING (event_id IN (SELECT id FROM events WHERE organizer_id IN 
-    (SELECT id FROM profiles WHERE auth_user_id = auth.uid())));
+-- Payments: Users can view their own payments, organization founders can view payments for their events
+CREATE POLICY "Users can view their own payments" ON payments FOR SELECT USING (
+    EXISTS (
+        SELECT 1 FROM tickets t
+        WHERE t.id = ticket_id AND t.buyer_id = auth.uid()
+    )
+);
+CREATE POLICY "Organization founders can view payments for their events" ON payments FOR SELECT USING (
+    EXISTS (
+        SELECT 1 FROM tickets t
+        JOIN races r ON r.id = t.race_id
+        JOIN events e ON e.id = r.event_id
+        JOIN organizations o ON o.id = e.organization_id
+        WHERE t.id = ticket_id AND o.founder_id = auth.uid()
+    )
+);
 
-CREATE POLICY event_volunteers_select_as_volunteer ON event_volunteers
-  FOR SELECT
-  USING (volunteer_id IN (SELECT id FROM profiles WHERE auth_user_id = auth.uid()));
+-- Create utility functions for slug generation
+-- Drop existing functions first to avoid conflicts
+DROP FUNCTION IF EXISTS generate_slug(text);
+DROP FUNCTION IF EXISTS clean_slug(text);
+DROP FUNCTION IF EXISTS generate_unique_edition_slug(text, uuid);
+DROP FUNCTION IF EXISTS generate_unique_event_root_slug(text);
+DROP FUNCTION IF EXISTS generate_unique_organization_slug(text);
+DROP FUNCTION IF EXISTS generate_unique_race_slug(text, uuid);
+DROP FUNCTION IF EXISTS generate_unique_slug(text, text, text);
 
-CREATE POLICY event_volunteers_manage_as_organizer ON event_volunteers
-  FOR ALL
-  USING (event_id IN (SELECT id FROM events WHERE organizer_id IN 
-    (SELECT id FROM profiles WHERE auth_user_id = auth.uid())));
-
--- TICKETS POLICIES
-CREATE POLICY tickets_select_as_purchaser ON tickets
-  FOR SELECT
-  USING (purchaser_id IN (SELECT id FROM profiles WHERE auth_user_id = auth.uid()));
-
-CREATE POLICY tickets_select_as_organizer ON tickets
-  FOR SELECT
-  USING (race_id IN (SELECT id FROM races WHERE event_id IN 
-    (SELECT id FROM events WHERE organizer_id IN 
-      (SELECT id FROM profiles WHERE auth_user_id = auth.uid()))));
-
-CREATE POLICY tickets_select_as_volunteer ON tickets
-  FOR SELECT
-  USING (race_id IN (SELECT id FROM races WHERE event_id IN 
-    (SELECT id FROM event_volunteers WHERE volunteer_id IN 
-      (SELECT id FROM profiles WHERE auth_user_id = auth.uid()))));
-
-CREATE POLICY tickets_insert_as_purchaser ON tickets
-  FOR INSERT
-  WITH CHECK (purchaser_id IN (SELECT id FROM profiles WHERE auth_user_id = auth.uid()));
-
--- PARTICIPANTS POLICIES
-CREATE POLICY participants_select_as_purchaser ON participants
-  FOR SELECT
-  USING (ticket_id IN (SELECT id FROM tickets WHERE purchaser_id IN 
-    (SELECT id FROM profiles WHERE auth_user_id = auth.uid())));
-
-CREATE POLICY participants_select_as_organizer ON participants
-  FOR SELECT
-  USING (ticket_id IN (SELECT id FROM tickets WHERE race_id IN 
-    (SELECT id FROM races WHERE event_id IN 
-      (SELECT id FROM events WHERE organizer_id IN 
-        (SELECT id FROM profiles WHERE auth_user_id = auth.uid())))));
-
-CREATE POLICY participants_select_as_volunteer ON participants
-  FOR SELECT
-  USING (ticket_id IN (SELECT id FROM tickets WHERE race_id IN 
-    (SELECT id FROM races WHERE event_id IN 
-      (SELECT id FROM event_volunteers WHERE volunteer_id IN 
-        (SELECT id FROM profiles WHERE auth_user_id = auth.uid())))));
-
-CREATE POLICY participants_insert_as_purchaser ON participants
-  FOR INSERT
-  WITH CHECK (ticket_id IN (SELECT id FROM tickets WHERE purchaser_id IN 
-    (SELECT id FROM profiles WHERE auth_user_id = auth.uid())));
-
-CREATE POLICY participants_update_as_volunteer ON participants
-  FOR UPDATE
-  USING (ticket_id IN (SELECT id FROM tickets WHERE race_id IN 
-    (SELECT id FROM races WHERE event_id IN 
-      (SELECT id FROM event_volunteers WHERE volunteer_id IN 
-        (SELECT id FROM profiles WHERE auth_user_id = auth.uid())))));
-
--- PAYMENTS POLICIES
-CREATE POLICY payments_select_as_purchaser ON payments
-  FOR SELECT
-  USING (ticket_id IN (SELECT id FROM tickets WHERE purchaser_id IN 
-    (SELECT id FROM profiles WHERE auth_user_id = auth.uid())));
-
-CREATE POLICY payments_select_as_organizer ON payments
-  FOR SELECT
-  USING (ticket_id IN (SELECT id FROM tickets WHERE race_id IN 
-    (SELECT id FROM races WHERE event_id IN 
-      (SELECT id FROM events WHERE organizer_id IN 
-        (SELECT id FROM profiles WHERE auth_user_id = auth.uid())))));
-
--- FUNCTIONS
-
--- Function to update timestamps
-CREATE OR REPLACE FUNCTION update_timestamp()
-RETURNS TRIGGER AS $$
+CREATE OR REPLACE FUNCTION generate_slug(input_text TEXT)
+RETURNS TEXT AS $$
 BEGIN
-  NEW.updated_at = NOW();
-  RETURN NEW;
+    RETURN lower(
+        regexp_replace(
+            regexp_replace(
+                regexp_replace(input_text, '[àáâãäå]', 'a', 'gi'),
+                '[èéêë]', 'e', 'gi'
+            ),
+            '[^a-z0-9]+', '-', 'gi'
+        )
+    );
 END;
 $$ LANGUAGE plpgsql;
 
--- Triggers for updating timestamps
-CREATE TRIGGER update_profiles_timestamp
-BEFORE UPDATE ON profiles
-FOR EACH ROW EXECUTE FUNCTION update_timestamp();
+CREATE OR REPLACE FUNCTION clean_slug(input_text TEXT)
+RETURNS TEXT AS $$
+BEGIN
+    RETURN trim(both '-' from generate_slug(input_text));
+END;
+$$ LANGUAGE plpgsql;
 
-CREATE TRIGGER update_events_timestamp
-BEFORE UPDATE ON events
-FOR EACH ROW EXECUTE FUNCTION update_timestamp();
+-- Function to handle new user profile creation
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS trigger AS $$
+BEGIN
+  INSERT INTO public.profiles (id, full_name, email, avatar_url, created_at, updated_at)
+  VALUES (
+    new.id,
+    COALESCE(new.raw_user_meta_data->>'full_name', new.raw_user_meta_data->>'name', ''),
+    new.email,
+    COALESCE(new.raw_user_meta_data->>'avatar_url', new.raw_user_meta_data->>'picture', ''),
+    now(),
+    now()
+  );
+  RETURN new;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
-CREATE TRIGGER update_races_timestamp
-BEFORE UPDATE ON races
-FOR EACH ROW EXECUTE FUNCTION update_timestamp();
+-- Add some indexes for performance
+CREATE INDEX IF NOT EXISTS idx_events_organization_id ON events(organization_id);
+CREATE INDEX IF NOT EXISTS idx_events_slug ON events(slug);
+CREATE INDEX IF NOT EXISTS idx_races_event_id ON races(event_id);
+CREATE INDEX IF NOT EXISTS idx_tickets_buyer_id ON tickets(buyer_id);
+CREATE INDEX IF NOT EXISTS idx_tickets_race_id ON tickets(race_id);
+CREATE INDEX IF NOT EXISTS idx_participants_ticket_id ON participants(ticket_id);
+CREATE INDEX IF NOT EXISTS idx_payments_ticket_id ON payments(ticket_id);
 
-CREATE TRIGGER update_tickets_timestamp
-BEFORE UPDATE ON tickets
-FOR EACH ROW EXECUTE FUNCTION update_timestamp();
-
-CREATE TRIGGER update_participants_timestamp
-BEFORE UPDATE ON participants
-FOR EACH ROW EXECUTE FUNCTION update_timestamp();
-
-CREATE TRIGGER update_payments_timestamp
-BEFORE UPDATE ON payments
-FOR EACH ROW EXECUTE FUNCTION update_timestamp();
+-- Create trigger to automatically create profile when user signs up
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();

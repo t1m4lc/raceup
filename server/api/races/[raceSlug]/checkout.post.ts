@@ -50,18 +50,29 @@ export default defineEventHandler(async (event) => {
       });
     }
 
-    // Get the race details
+    // Get the race details with the new simplified structure
     const { data: race, error: raceError } = await supabase
       .from("races")
-      .select("*, event:events(*)")
+      .select(
+        `
+        *,
+        event:events(
+          *,
+          organization:organizations(*)
+        )
+      `
+      )
       .eq("slug", raceSlug)
       .single();
 
-    if (raceError || !race) {
-      console.error("Error fetching race:", raceError);
+    if (raceError || !race || !race.event || !race.event.organization) {
+      console.error(
+        "Error fetching race or missing required relations:",
+        raceError
+      );
       throw createError({
         statusCode: 404,
-        message: "Race not found",
+        message: "Race not found or missing required organization information",
       });
     }
 
@@ -80,7 +91,7 @@ export default defineEventHandler(async (event) => {
         currency: race.currency,
         application_fee_amount: applicationFeeCents,
         transfer_data: {
-          destination: race.event.stripe_account_id,
+          destination: race.event.organization.stripe_account_id,
         },
         metadata: {
           race_id: race.id,
@@ -92,7 +103,7 @@ export default defineEventHandler(async (event) => {
         },
       },
       {
-        stripeAccount: race.event.stripe_account_id,
+        stripeAccount: race.event.organization.stripe_account_id,
       }
     );
 
@@ -115,7 +126,7 @@ export default defineEventHandler(async (event) => {
 
       // Cancel the payment intent if we couldn't create the ticket
       await stripe.paymentIntents.cancel(paymentIntent.id, {
-        stripeAccount: race.event.stripe_account_id,
+        stripeAccount: race.event.organization.stripe_account_id,
       });
 
       throw createError({
@@ -127,7 +138,7 @@ export default defineEventHandler(async (event) => {
     // Create participants for the ticket
     const participantsToInsert = participants.map((participant) => ({
       ticket_id: ticket.id,
-      full_name: participant.fullname, // Changed to full_name to match new schema
+      fullname: participant.fullname,
       birthdate: participant.birthdate,
       gender: participant.gender,
       certificate_url: participant.certificate_url || null,

@@ -12,6 +12,7 @@ export default defineNuxtConfig({
     "@unlok-co/nuxt-stripe",
     "dayjs-nuxt",
     "@pinia/nuxt",
+    "@vueuse/nuxt",
   ],
   css: ["~/assets/css/tailwind.css"],
   vite: {
@@ -28,8 +29,7 @@ export default defineNuxtConfig({
     redirectOptions: {
       login: "/login",
       callback: "/confirm",
-      // include: ["/admin(/*)?"],
-      include: undefined,
+      include: ["/admin(/*)?"],
       exclude: [],
       saveRedirectToCookie: true,
     },
