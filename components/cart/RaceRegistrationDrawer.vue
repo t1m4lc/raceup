@@ -19,7 +19,7 @@
               
               <div class="space-y-6">
                 <div>
-                  <Label for="participantCount">Number of participants</Label>
+                  <Label for="participantCount" class="sr-only">Number of participants</Label>
                   <Input 
                     id="participantCount"
                     type="number"
@@ -43,81 +43,148 @@
               </div>
               
               <div class="space-y-6">
-                <Tabs v-model="activeTab" class="w-full">
-                  <TabsList class="w-full mb-4">
-                    <TabsTrigger 
-                      v-for="(_, index) in participants" 
-                      :key="index" 
-                      :value="`participant-${index}`"
-                      class="flex-1"
-                    >
-                      Participant {{ index + 1 }}
-                    </TabsTrigger>
-                  </TabsList>
-                  
-                  <div v-for="(participant, index) in participants" :key="index">
-                    <TabsContent :value="`participant-${index}`">
-                      <!-- Name -->
-                      <div class="mb-4">
-                        <Label :for="`name-${index}`">Full Name</Label>
-                        <Input
-                          :id="`name-${index}`"
-                          v-model="participant.full_name"
-                          placeholder="John Doe"
-                          required
-                        />
-                      </div>
-                      
-                      <!-- Birthdate -->
-                      <div class="mb-4">
-                        <Label :for="`birthdate-${index}`">Birthdate</Label>
-                        <Popover>
-                          <PopoverTrigger as-child>
-                            <Button
-                              variant="outline"
-                              :class="[
-                                'w-full justify-start text-left font-normal',
-                                !participant.birthdate && 'text-muted-foreground'
-                              ]"
-                            >
-                              <CalendarIcon class="mr-2 h-4 w-4" />
-                              {{ participant.birthdate ? formatDate(participant.birthdate) : 'Select date' }}
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent class="w-auto p-0">
-                            <DatePicker 
-                              v-model="participant.birthdate"
-                              :max="new Date()"
-                            />
-                          </PopoverContent>
-                        </Popover>
-                      </div>
-                      
-                      <!-- Gender -->
-                      <div class="mb-4">
-                        <Label :for="`gender-${index}`">Gender</Label>
-                        <Select v-model="participant.gender">
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select gender" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="male">Male</SelectItem>
-                            <SelectItem value="female">Female</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      
-                      <!-- Note about medical certificate -->
-                      <div class="mb-4">
-                        <Alert variant="default" class="bg-muted/50">
-                          <AlertDescription>
-                            You'll be able to upload your medical certificate after registration in the ticket details page.
-                          </AlertDescription>
-                        </Alert>
-                      </div>
-                    </TabsContent>
+                <!-- Multiple participants: show tabs -->
+                <div v-if="participants.length > 1">
+                  <Tabs v-model="activeTab" class="w-full">
+                    <div class="overflow-x-auto">
+                      <TabsList class="w-max min-w-full mb-4 flex">
+                        <TabsTrigger 
+                          v-for="(_, index) in participants" 
+                          :key="index" 
+                          :value="`participant-${index}`"
+                          class="flex-shrink-0 min-w-[120px]"
+                        >
+                          Participant {{ index + 1 }}
+                        </TabsTrigger>
+                      </TabsList>
+                    </div>
+                    
+                    <div v-for="(participant, index) in participants" :key="index">
+                      <TabsContent :value="`participant-${index}`">
+                        <!-- Name -->
+                        <div class="mb-4">
+                          <Label :for="`name-${index}`">Full Name</Label>
+                          <Input
+                            :id="`name-${index}`"
+                            v-model="participant.full_name"
+                            placeholder="John Doe"
+                            required
+                          />
+                        </div>
+                        
+                        <!-- Birthdate -->
+                        <div class="mb-4">
+                          <Label :for="`birthdate-${index}`">Birthdate</Label>
+                          <Popover>
+                            <PopoverTrigger as-child>
+                              <Button
+                                variant="outline"
+                                :class="[
+                                  'w-full justify-start text-left font-normal',
+                                  !participant.birthdate && 'text-muted-foreground'
+                                ]"
+                              >
+                                <CalendarIcon class="mr-2 h-4 w-4" />
+                                {{ participant.birthdate ? formatDate(participant.birthdate) : 'Select date' }}
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent class="w-auto p-0">
+                              <DatePicker 
+                                v-model="participant.birthdate"
+                                :max="new Date()"
+                              />
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+                        
+                        <!-- Gender -->
+                        <div class="mb-4">
+                          <Label :for="`gender-${index}`">Gender</Label>
+                          <Select v-model="participant.gender">
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select gender" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="male">Male</SelectItem>
+                              <SelectItem value="female">Female</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        
+                        <!-- Note about medical certificate -->
+                        <div class="mb-4">
+                          <Alert variant="default" class="bg-muted/50">
+                            <AlertDescription>
+                              You'll be able to upload your medical certificate after registration in the ticket details page.
+                            </AlertDescription>
+                          </Alert>
+                        </div>
+                      </TabsContent>
+                    </div>
+                  </Tabs>
+                </div>
+                
+                <!-- Single participant: show form directly -->
+                <div v-else-if="participants.length === 1" class="space-y-4">
+                  <!-- Name -->
+                  <div class="mb-4">
+                    <Label for="name-0">Full Name</Label>
+                    <Input
+                      id="name-0"
+                      v-model="participants[0].full_name"
+                      placeholder="John Doe"
+                      required
+                    />
                   </div>
-                </Tabs>
+                  
+                  <!-- Birthdate -->
+                  <div class="mb-4">
+                    <Label for="birthdate-0">Birthdate</Label>
+                    <Popover>
+                      <PopoverTrigger as-child>
+                        <Button
+                          variant="outline"
+                          :class="[
+                            'w-full justify-start text-left font-normal',
+                            !participants[0].birthdate && 'text-muted-foreground'
+                          ]"
+                        >
+                          <CalendarIcon class="mr-2 h-4 w-4" />
+                          {{ participants[0].birthdate ? formatDate(participants[0].birthdate) : 'Select date' }}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent class="w-auto p-0">
+                        <DatePicker 
+                          v-model="participants[0].birthdate"
+                          :max="new Date()"
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                  
+                  <!-- Gender -->
+                  <div class="mb-4">
+                    <Label for="gender-0">Gender</Label>
+                    <Select v-model="participants[0].gender">
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select gender" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="male">Male</SelectItem>
+                        <SelectItem value="female">Female</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <!-- Note about medical certificate -->
+                  <div class="mb-4">
+                    <Alert variant="default" class="bg-muted/50">
+                      <AlertDescription>
+                        You'll be able to upload your medical certificate after registration in the ticket details page.
+                      </AlertDescription>
+                    </Alert>
+                  </div>
+                </div>
                 
                 <Button class="w-full" @click="nextStep">Continue</Button>
               </div>
@@ -131,44 +198,72 @@
               </div>
               
               <div class="space-y-6">
-                <Tabs v-model="activeTab" class="w-full">
-                  <TabsList class="w-full mb-4">
-                    <TabsTrigger 
-                      v-for="(_, index) in participants" 
-                      :key="index" 
-                      :value="`extras-${index}`"
-                      class="flex-1"
-                    >
-                      Participant {{ index + 1 }}
-                    </TabsTrigger>
-                  </TabsList>
-                  
-                  <div v-for="(participant, index) in participants" :key="index">
-                    <TabsContent :value="`extras-${index}`">
-                      <div class="space-y-4">
-                        <div>
-                          <Label>Available Extras</Label>
-                          <div class="mt-2 space-y-2">
-                            <div v-for="extra in availableExtras" :key="extra.id" class="flex items-center space-x-2">
-                              <Checkbox 
-                                :id="`${extra.id}-${index}`" 
-                                v-model:checked="extraSelections[index][extra.id]"
-                                @update:checked="updateExtras(index)"
-                              />
-                              <label 
-                                :for="`${extra.id}-${index}`"
-                                class="flex items-center justify-between w-full text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                              >
-                                <span>{{ extra.name }}</span>
-                                <span>{{ formatPrice(extra.price_cents, race?.currency) }}</span>
-                              </label>
+                <!-- Multiple participants: show tabs -->
+                <div v-if="participants.length > 1">
+                  <Tabs v-model="activeTab" class="w-full">
+                    <div class="overflow-x-auto">
+                      <TabsList class="w-max min-w-full mb-4 flex">
+                        <TabsTrigger 
+                          v-for="(_, index) in participants" 
+                          :key="index" 
+                          :value="`extras-${index}`"
+                          class="flex-shrink-0 min-w-[120px]"
+                        >
+                          Participant {{ index + 1 }}
+                        </TabsTrigger>
+                      </TabsList>
+                    </div>
+                    
+                    <div v-for="(participant, index) in participants" :key="index">
+                      <TabsContent :value="`extras-${index}`">
+                        <div class="space-y-4">
+                          <div>
+                            <Label>Available Extras</Label>
+                            <div class="mt-2 space-y-2">
+                              <div v-for="extra in availableExtras" :key="extra.id" class="flex items-center space-x-2">
+                                <Checkbox 
+                                  :id="`${extra.id}-${index}`" 
+                                  v-model:checked="extraSelections[index][extra.id]"
+                                  @update:checked="updateExtras(index)"
+                                />
+                                <label 
+                                  :for="`${extra.id}-${index}`"
+                                  class="flex items-center justify-between w-full text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                                >
+                                  <span>{{ extra.name }}</span>
+                                  <span>{{ formatPrice(extra.price_cents, race?.currency) }}</span>
+                                </label>
+                              </div>
                             </div>
                           </div>
                         </div>
+                      </TabsContent>
+                    </div>
+                  </Tabs>
+                </div>
+                
+                <!-- Single participant: show form directly -->
+                <div v-else-if="participants.length === 1" class="space-y-4">
+                  <div>
+                    <Label>Available Extras</Label>
+                    <div class="mt-2 space-y-2">
+                      <div v-for="extra in availableExtras" :key="extra.id" class="flex items-center space-x-2">
+                        <Checkbox 
+                          :id="`${extra.id}-0`" 
+                          v-model:checked="extraSelections[0][extra.id]"
+                          @update:checked="updateExtras(0)"
+                        />
+                        <label 
+                          :for="`${extra.id}-0`"
+                          class="flex items-center justify-between w-full text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                        >
+                          <span>{{ extra.name }}</span>
+                          <span>{{ formatPrice(extra.price_cents, race?.currency) }}</span>
+                        </label>
                       </div>
-                    </TabsContent>
+                    </div>
                   </div>
-                </Tabs>
+                </div>
                 
                 <Button class="w-full" @click="addToCart">Add to Cart</Button>
               </div>

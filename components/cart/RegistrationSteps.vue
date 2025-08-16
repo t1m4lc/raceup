@@ -9,7 +9,7 @@
       
       <div class="space-y-4">
         <div>
-          <Label for="participantCount">Number of participants</Label>
+          <Label for="participantCount" class="sr-only">Number of participants</Label>
           <Input 
             id="participantCount"
             type="number"
@@ -34,67 +34,116 @@
       </div>
       
       <div class="space-y-6">
-        <Tabs :model-value="activeTab" @update:model-value="$emit('update:active-tab', $event)" class="w-full">
-          <TabsList class="w-full mb-2">
-            <TabsTrigger 
-              v-for="(_, index) in participants" 
-              :key="index" 
-              :value="`participant-${index}`"
-              class="flex-1"
-            >
-              Participant {{ index + 1 }}
-            </TabsTrigger>
-          </TabsList>
-          
-          <div v-for="(participant, index) in participants" :key="index">
-            <TabsContent :value="`participant-${index}`">
-              <!-- Name -->
-              <div class="mb-4">
-                <Label :for="`name-${index}`">Full Name</Label>
-                <Input
-                  :id="`name-${index}`"
-                  v-model="participant.full_name"
-                  placeholder="John Doe"
-                  required
-                />
-              </div>
-              
-              <!-- Birthdate -->
-              <div class="mb-4">
-                <Label :for="`birthdate-${index}`">Birthdate</Label>
-                <Input 
-                  :id="`birthdate-${index}`"
-                  type="date"
-                  v-model="participant.birthdate"
-                  class="w-full"
-                />
-              </div>
-              
-              <!-- Gender -->
-              <div class="mb-4">
-                <Label :for="`gender-${index}`">Gender</Label>
-                <Select v-model="participant.gender">
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select gender" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="male">Male</SelectItem>
-                    <SelectItem value="female">Female</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              <!-- Note about medical certificate -->
-              <div class="mb-4">
-                <Alert variant="default" class="bg-muted/50">
-                  <AlertDescription>
-                    You'll be able to upload your medical certificate after registration in the ticket details page.
-                  </AlertDescription>
-                </Alert>
-              </div>
-            </TabsContent>
+        <!-- Multiple participants: show tabs -->
+        <div v-if="participants.length > 1">
+          <Tabs :model-value="activeTab" @update:model-value="$emit('update:active-tab', $event)" class="w-full">
+            <div class="overflow-x-auto">
+              <TabsList class="w-max min-w-full mb-2 flex">
+                <TabsTrigger 
+                  v-for="(_, index) in participants" 
+                  :key="index" 
+                  :value="`participant-${index}`"
+                  class="flex-shrink-0 min-w-[120px]"
+                >
+                  Participant {{ index + 1 }}
+                </TabsTrigger>
+              </TabsList>
+            </div>
+            
+            <div v-for="(participant, index) in participants" :key="index">
+              <TabsContent :value="`participant-${index}`">
+                <!-- Name -->
+                <div class="mb-4">
+                  <Label :for="`name-${index}`">Full Name</Label>
+                  <Input
+                    :id="`name-${index}`"
+                    v-model="participant.full_name"
+                    placeholder="John Doe"
+                    required
+                  />
+                </div>
+                
+                <!-- Birthdate -->
+                <div class="mb-4">
+                  <Label :for="`birthdate-${index}`">Birthdate</Label>
+                  <Input 
+                    :id="`birthdate-${index}`"
+                    type="date"
+                    v-model="participant.birthdate"
+                    class="w-full"
+                  />
+                </div>
+                
+                <!-- Gender -->
+                <div class="mb-4">
+                  <Label :for="`gender-${index}`">Gender</Label>
+                  <Select v-model="participant.gender">
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select gender" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="male">Male</SelectItem>
+                      <SelectItem value="female">Female</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <!-- Note about medical certificate -->
+                <div class="mb-4">
+                  <Alert variant="default" class="bg-muted/50">
+                    <AlertDescription>
+                      You'll be able to upload your medical certificate after registration in the ticket details page.
+                    </AlertDescription>
+                  </Alert>
+                </div>
+              </TabsContent>
+            </div>
+          </Tabs>
+        </div>
+        
+        <!-- Single participant: show form directly -->
+        <div v-else-if="participants.length === 1" class="space-y-4">
+          <div class="mb-4">
+            <Label for="name-0">Full Name</Label>
+            <Input
+              id="name-0"
+              v-model="participants[0].full_name"
+              placeholder="John Doe"
+              required
+            />
           </div>
-        </Tabs>
+          
+          <div class="mb-4">
+            <Label for="birthdate-0">Birthdate</Label>
+            <Input 
+              id="birthdate-0"
+              type="date"
+              v-model="participants[0].birthdate"
+              class="w-full"
+            />
+          </div>
+          
+          <div class="mb-4">
+            <Label for="gender-0">Gender</Label>
+            <Select v-model="participants[0].gender">
+              <SelectTrigger>
+                <SelectValue placeholder="Select gender" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="male">Male</SelectItem>
+                <SelectItem value="female">Female</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          
+          <div class="mb-4">
+            <Alert variant="default" class="bg-muted/50">
+              <AlertDescription>
+                You'll be able to upload your medical certificate after registration in the ticket details page.
+              </AlertDescription>
+            </Alert>
+          </div>
+        </div>
         
         <div class="flex gap-3">
           <Button variant="outline" class="flex-1" @click="$emit('prev-step')">Back</Button>
@@ -111,47 +160,78 @@
       </div>
       
       <div class="space-y-6">
-        <Tabs :model-value="activeTab" @update:model-value="$emit('update:active-tab', $event)" class="w-full">
-          <TabsList class="w-full mb-2">
-            <TabsTrigger 
-              v-for="(_, index) in participants" 
-              :key="index" 
-              :value="`participant-${index}`"
-              class="flex-1"
-            >
-              Participant {{ index + 1 }}
-            </TabsTrigger>
-          </TabsList>
-          
-          <div v-for="(participant, index) in participants" :key="index">
-            <TabsContent :value="`participant-${index}`">
-              <div class="space-y-4">
-                <div>
-                  <Label>Available Extras</Label>
-                  <div class="mt-2 space-y-2">
-                    <div v-for="extra in availableExtras" :key="extra.id" class="flex items-center space-x-2">
-                      <Checkbox 
-                        :id="`${extra.id}-${index}`" 
-                        :checked="extraSelections[index]?.[extra.id]"
-                        @update:checked="(checked: boolean) => {
-                          extraSelections[index][extra.id] = checked;
-                          $emit('update:extras', index);
-                        }"
-                      />
-                      <label 
-                        :for="`${extra.id}-${index}`"
-                        class="flex items-center justify-between w-full text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                      >
-                        <span>{{ extra.name }}</span>
-                        <span>{{ formatPrice(extra.price_cents, race?.currency) }}</span>
-                      </label>
+        <!-- Multiple participants: show tabs -->
+        <div v-if="participants.length > 1">
+          <Tabs :model-value="activeTab" @update:model-value="$emit('update:active-tab', $event)" class="w-full">
+            <div class="overflow-x-auto">
+              <TabsList class="w-max min-w-full mb-2 flex">
+                <TabsTrigger 
+                  v-for="(_, index) in participants" 
+                  :key="index" 
+                  :value="`participant-${index}`"
+                  class="flex-shrink-0 min-w-[120px]"
+                >
+                  Participant {{ index + 1 }}
+                </TabsTrigger>
+              </TabsList>
+            </div>
+            
+            <div v-for="(participant, index) in participants" :key="index">
+              <TabsContent :value="`participant-${index}`">
+                <div class="space-y-4">
+                  <div>
+                    <Label>Available Extras</Label>
+                    <div class="mt-2 space-y-2">
+                      <div v-for="extra in availableExtras" :key="extra.id" class="flex items-center space-x-2">
+                        <Checkbox 
+                          :id="`${extra.id}-${index}`" 
+                          :checked="extraSelections[index]?.[extra.id]"
+                          @update:checked="(checked: boolean) => {
+                            extraSelections[index][extra.id] = checked;
+                            $emit('update:extras', index);
+                          }"
+                        />
+                        <label 
+                          :for="`${extra.id}-${index}`"
+                          class="flex items-center justify-between w-full text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                        >
+                          <span>{{ extra.name }}</span>
+                          <span>{{ formatPrice(extra.price_cents, race?.currency) }}</span>
+                        </label>
+                      </div>
                     </div>
                   </div>
                 </div>
+              </TabsContent>
+            </div>
+          </Tabs>
+        </div>
+        
+        <!-- Single participant: show form directly -->
+        <div v-else-if="participants.length === 1" class="space-y-4">
+          <div>
+            <Label>Available Extras</Label>
+            <div class="mt-2 space-y-2">
+              <div v-for="extra in availableExtras" :key="extra.id" class="flex items-center space-x-2">
+                <Checkbox 
+                  :id="`${extra.id}-0`" 
+                  :checked="extraSelections[0]?.[extra.id]"
+                  @update:checked="(checked: boolean) => {
+                    extraSelections[0][extra.id] = checked;
+                    $emit('update:extras', 0);
+                  }"
+                />
+                <label 
+                  :for="`${extra.id}-0`"
+                  class="flex items-center justify-between w-full text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                >
+                  <span>{{ extra.name }}</span>
+                  <span>{{ formatPrice(extra.price_cents, race?.currency) }}</span>
+                </label>
               </div>
-            </TabsContent>
+            </div>
           </div>
-        </Tabs>
+        </div>
         
         <div class="flex gap-3">
           <Button variant="outline" class="flex-1" @click="$emit('prev-step')">Back</Button>

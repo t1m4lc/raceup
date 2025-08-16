@@ -97,16 +97,28 @@
               <div class="space-y-2">
                 <div class="flex justify-between">
                   <span>Subtotal</span>
-                  <span>{{ formattedTotalPrice }}</span>
+                  <span>{{ formattedSubtotalPrice }}</span>
                 </div>
-                <div class="flex justify-between text-muted-foreground">
-                  <span>Tax</span>
-                  <span>{{ formattedTaxAmount }}</span>
+                <div class="flex justify-between text-sm">
+                  <div class="flex items-center gap-1">
+                    <span>Service fee</span>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <HelpCircleIcon class="h-3 w-3 text-muted-foreground cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent class="max-w-xs">
+                          <p>Software service fees to support platform maintenance, security, and customer support.</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                  <span>{{ formattedFeesAmount }}</span>
                 </div>
                 <div class="border-t pt-2 mt-2">
                   <div class="flex justify-between font-medium">
                     <span>Total</span>
-                    <span>{{ formattedGrandTotal }}</span>
+                    <span>{{ formattedTotalPrice }}</span>
                   </div>
                 </div>
               </div>
@@ -134,27 +146,36 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useCartStore, type CartItem } from '~/stores/cart'
 import { 
   ShoppingCartIcon,
-  XIcon
+  XIcon,
+  HelpCircleIcon
 } from 'lucide-vue-next'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 
 const { $dayjs } = useNuxtApp()
 const router = useRouter()
 const cartStore = useCartStore()
+const client = useSupabaseClient()
+const user = useSupabaseUser()
 
 // Extract reactive state properties using storeToRefs
 const { items: cartItems } = storeToRefs(cartStore)
-const { totalPrice } = storeToRefs(cartStore)
+const { 
+  formattedTotalPrice, 
+  formattedSubtotalPrice, 
+  formattedFeesAmount,
+} = storeToRefs(cartStore)
 
 const isProcessing = ref(false)
+const userProfile = ref<any>(null)
 
 const contactInfo = ref({
   firstName: '',
@@ -163,31 +184,65 @@ const contactInfo = ref({
   phone: ''
 })
 
-// Tax amount (example: 10%)
-const taxRate = 0.10
+// Fetch user profile data and prefill contact info
+const loadUserProfile = async () => {
+  if (!user.value) return
+  
+  try {
+    // Fetch user profile from profiles table
+    const { data: profile, error } = await client
+      .from('profiles')
+      .select('*')
+      .eq('id', user.value.id)
+      .single()
+    
+    if (error) {
+      console.warn('Could not fetch user profile:', error)
+      // Fallback to auth user metadata
+      const fullName = user.value.user_metadata?.full_name || ''
+      const nameParts = fullName.split(' ')
+      
+      contactInfo.value = {
+        firstName: nameParts[0] || '',
+        lastName: nameParts.slice(1).join(' ') || '',
+        email: user.value.email || '',
+        phone: ''
+      }
+    } else if (profile) {
+      userProfile.value = profile
+      
+      // Parse full name from profile
+      const fullName = (profile as any).full_name || ''
+      const nameParts = fullName.split(' ')
+      
+      contactInfo.value = {
+        firstName: nameParts[0] || '',
+        lastName: nameParts.slice(1).join(' ') || '',
+        email: (profile as any).email || user.value.email || '',
+        phone: (profile as any).phone || ''
+      }
+    }
+  } catch (err) {
+    console.error('Error loading user profile:', err)
+    // Fallback to auth user metadata
+    const fullName = user.value.user_metadata?.full_name || ''
+    const nameParts = fullName.split(' ')
+    
+    contactInfo.value = {
+      firstName: nameParts[0] || '',
+      lastName: nameParts.slice(1).join(' ') || '',
+      email: user.value.email || '',
+      phone: ''
+    }
+  }
+}
 
-const taxAmount = computed(() => {
-  return totalPrice.value * taxRate
-})
-
-const grandTotal = computed(() => {
-  return totalPrice.value + taxAmount.value
-})
-
-const formattedTotalPrice = computed(() => {
-  const currency = cartItems.value.length > 0 ? cartItems.value[0].currency : 'EUR'
-  return formatPrice(totalPrice.value, currency)
-})
-
-const formattedTaxAmount = computed(() => {
-  const currency = cartItems.value.length > 0 ? cartItems.value[0].currency : 'EUR'
-  return formatPrice(taxAmount.value, currency)
-})
-
-const formattedGrandTotal = computed(() => {
-  const currency = cartItems.value.length > 0 ? cartItems.value[0].currency : 'EUR'
-  return formatPrice(grandTotal.value, currency)
-})
+// Watch for user changes and load profile
+watch(user, (newUser) => {
+  if (newUser) {
+    loadUserProfile()
+  }
+}, { immediate: true })
 
 const canProceed = computed(() => {
   return cartItems.value.length > 0 &&

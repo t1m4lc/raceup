@@ -2,7 +2,7 @@
   <div>
     <!-- Desktop Dialog (≥1024px) -->
     <Dialog :open="open && (mode === 'dialog' || (!mode && !isMobile))" @update:open="(value) => $emit('update:open', value)">
-      <DialogContent class="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
+      <DialogContent class="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader class="flex-shrink-0">
           <DialogTitle>Register for {{ race?.name }}</DialogTitle>
           <DialogDescription class="flex items-center gap-4 text-sm">
