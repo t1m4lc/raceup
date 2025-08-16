@@ -14,6 +14,12 @@ CREATE TABLE IF NOT EXISTS profiles (
     email TEXT UNIQUE,
     phone TEXT,
     avatar_url TEXT,
+    first_name TEXT,
+    last_name TEXT,
+    date_of_birth DATE,
+    gender TEXT CHECK (gender IN ('male', 'female')),
+    phone_number TEXT,
+    onboarding_completed BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );

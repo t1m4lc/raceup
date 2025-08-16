@@ -285,4 +285,8 @@ const proceedToPayment = async () => {
     isProcessing.value = false
   }
 }
+
+definePageMeta({
+  middleware: ['auth']
+})
 </script>

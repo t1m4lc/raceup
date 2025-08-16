@@ -3,6 +3,21 @@
     <div class="mb-8 text-center">
       <h1 class="text-4xl font-bold">RaceUp</h1>
       <p class="text-xl text-muted-foreground">Find your next running challenge</p>
+      
+      <!-- Onboarding CTA -->
+      <div class="mt-6 flex flex-col sm:flex-row gap-4 justify-center items-center">
+        <Button asChild class="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700">
+          <NuxtLink to="/onboarding">
+            Get Started - Create Your Profile 🚀
+          </NuxtLink>
+        </Button>
+        
+        <Button asChild variant="outline">
+          <NuxtLink to="/organizations">
+            Browse Organizations
+          </NuxtLink>
+        </Button>
+      </div>
     </div>
 
     <div v-if="loading" class="flex justify-center items-center h-64">
