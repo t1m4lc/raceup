@@ -4,7 +4,7 @@ import type { Database } from "~/supabase/supabase";
 export default defineEventHandler(async (event) => {
   try {
     const body = await readBody(event);
-    const { participantId, eventId, checkedInBy } = body;
+    const { participantId, eventId, checkedInBy, bibNumber } = body;
 
     if (!participantId) {
       throw createError({
@@ -65,6 +65,21 @@ export default defineEventHandler(async (event) => {
       })
       .eq("id", participant.id);
 
+    // If bibNumber provided, update the participant record
+    if (bibNumber) {
+      const { error: bibError } = await supabase
+        .from("participants")
+        .update({
+          bib_number: bibNumber,
+        })
+        .eq("id", participantId);
+
+      if (bibError) {
+        console.error("Error updating bib number:", bibError);
+        // Don't fail the check-in if bib number update fails
+      }
+    }
+
     if (checkinError) {
       console.error("Error checking in participant:", checkinError);
       throw createError({
@@ -77,6 +92,7 @@ export default defineEventHandler(async (event) => {
       success: true,
       message: "Participant checked in successfully",
       checkedInAt: new Date().toISOString(),
+      bibNumber: bibNumber || null,
     };
   } catch (error: any) {
     console.error("Error in checkin endpoint:", error);

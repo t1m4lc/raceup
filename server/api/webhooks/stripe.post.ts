@@ -117,9 +117,8 @@ export default defineEventHandler(async (event) => {
           .from("tickets")
           .insert({
             race_id: race.id,
-            purchaser_id: userId,
+            buyer_id: userId,
             total_price_cents: itemTotal,
-            currency: race.currency,
             stripe_payment_intent_id: paymentIntent.id,
             status: "paid", // Already paid at this point
           })
@@ -135,7 +134,8 @@ export default defineEventHandler(async (event) => {
         const participantsToInsert = cartItem.participants.map(
           (participant: any) => ({
             ticket_id: ticket.id,
-            fullname: `${participant.first_name} ${participant.last_name}`,
+            first_name: participant.first_name,
+            last_name: participant.last_name,
             birthdate: participant.birthdate,
             gender: participant.gender,
             emergency_contact_name: participant.emergencyContactName || null,
@@ -144,12 +144,14 @@ export default defineEventHandler(async (event) => {
           })
         );
 
-        const { error: participantsError } = await supabase
+        const { data: participants, error: participantsError } = await supabase
           .from("participants")
-          .insert(participantsToInsert);
+          .insert(participantsToInsert)
+          .select();
 
-        if (participantsError) {
+        if (participantsError || !participants) {
           console.error("Error creating participants:", participantsError);
+          continue;
         }
 
         // Create payment record
@@ -162,27 +164,12 @@ export default defineEventHandler(async (event) => {
           stripe_payment_intent_id: paymentIntent.id,
           status: "completed",
         });
-      }
 
-      // Generate individual tickets with QR codes for each participant
-      if (
-        (ticket as any).participants &&
-        Array.isArray((ticket as any).participants)
-      ) {
-        for (const participant of (ticket as any).participants) {
+        // Generate individual tickets with QR codes for each participant
+        for (const participant of participants) {
           try {
             // Generate unique QR code data
-            const qrData = await generateQRCodeData(
-              (ticket as any).id,
-              participant.id
-            );
-
-            // Generate QR code as data URL
-            const qrCodeDataUrl = await QRCode.toDataURL(qrData, {
-              errorCorrectionLevel: "M",
-              margin: 1,
-              width: 256,
-            });
+            const qrData = await generateQRCodeData(ticket.id, participant.id);
 
             // Generate unique ticket number
             const ticketNumber = await generateTicketNumber();
@@ -191,12 +178,12 @@ export default defineEventHandler(async (event) => {
             const { error: individualTicketError } = await supabase.rpc(
               "create_individual_ticket",
               {
-                p_ticket_id: (ticket as any).id,
+                p_ticket_id: ticket.id,
                 p_participant_id: participant.id,
                 p_qr_code_data: qrData,
                 p_ticket_number: ticketNumber,
-                p_is_user_linked: (participant as any).user_id ? true : false,
-                p_linked_user_id: (participant as any).user_id || null,
+                p_is_user_linked: participant.user_id ? true : false,
+                p_linked_user_id: participant.user_id || undefined,
               }
             );
 

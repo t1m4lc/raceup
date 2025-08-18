@@ -86,7 +86,7 @@ import {
 import { Button } from '@/components/ui/button'
 
 definePageMeta({
-  middleware: ['auth', 'god-mode']
+  middleware: ['auth', 'master-mode']
 })
 
 // Check if the current route matches a path

@@ -48,7 +48,7 @@ export default defineEventHandler(async (event) => {
 
     // Get the request body
     const body = await readBody(event);
-    const { certificateValidated } = body;
+    const { certificateValidated, bibNumber } = body;
 
     // First, check if the volunteer is assigned to the event for this participant
     const { data: participant, error: participantError } = await supabase

@@ -178,6 +178,26 @@
               </div>
             </div>
             
+            <!-- Bib Number Assignment -->
+            <div v-if="currentTicket && !currentTicket.checked_in_at" class="space-y-3 pt-3 border-t">
+              <h4 class="font-medium">Bib Number Assignment</h4>
+              <div class="space-y-2">
+                <Label for="bibNumber">Assign Bib Number</Label>
+                <Input 
+                  id="bibNumber"
+                  v-model="bibNumber"
+                  placeholder="Enter bib number (e.g., 1234)"
+                  type="text"
+                  pattern="[0-9]*"
+                  maxlength="6"
+                  @keyup.enter="checkInParticipant"
+                />
+                <p class="text-sm text-muted-foreground">
+                  Enter the physical bib number for this participant
+                </p>
+              </div>
+            </div>
+            
             <!-- Action Buttons -->
             <div class="flex gap-2 pt-4">
               <Button 
@@ -274,7 +294,7 @@ import ParticipantsList from '~/components/admin/ParticipantsList.vue'
 
 definePageMeta({
   layout: 'admin',
-  middleware: 'god-mode'
+  middleware: 'master-mode'
 })
 
 const client = useSupabaseClient()
@@ -298,6 +318,7 @@ const manualTicketNumber = ref('')
 
 // Current validation
 const currentTicket = ref<any>(null)
+const bibNumber = ref('')
 
 // Computed
 const filteredParticipants = computed(() => {
@@ -530,26 +551,37 @@ const validateTicket = async (ticketId: string, participantId: string) => {
 }
 
 const checkInParticipant = async () => {
-  if (!currentTicket.value) return
+  if (!currentTicket.value || !selectedEventId.value) return
   
   try {
-    const { error } = await (client as any)
-      .from('individual_tickets')
-      .update({
-        status: 'used',
-        checked_in_at: new Date().toISOString(),
-        checked_in_by: user.value?.id || ''
-      })
-      .eq('id', currentTicket.value.id)
+    // Use the API endpoint to handle check-in with bib number
+    const response = await $fetch('/api/admin/checkin', {
+      method: 'POST',
+      body: {
+        participantId: currentTicket.value.participant_id,
+        eventId: selectedEventId.value,
+        checkedInBy: user.value?.id || '',
+        bibNumber: bibNumber.value.trim() || null
+      }
+    })
 
-    if (error) throw error
-    
-    currentTicket.value.status = 'used'
-    currentTicket.value.checked_in_at = new Date().toISOString()
-    
-    await loadParticipants()
+    if (response.success) {
+      // Update the current ticket status
+      currentTicket.value.checked_in_at = response.checkedInAt
+      currentTicket.value.status = 'used'
+      
+      // Clear the bib number input
+      bibNumber.value = ''
+      
+      // Reload participants list to reflect changes
+      await loadParticipants()
+      
+      // Show success message
+      console.log('Check-in successful:', response.message)
+    }
   } catch (error) {
     console.error('Check-in error:', error)
+    // TODO: Add proper error handling/toast notification
   }
 }
 
@@ -577,10 +609,12 @@ const updateExtraValidation = async (extraId: string, validated: boolean) => {
 
 const clearCurrentTicket = () => {
   currentTicket.value = null
+  bibNumber.value = ''
 }
 
 const selectParticipant = (participant: any) => {
   currentTicket.value = participant
+  bibNumber.value = participant.participant?.bib_number || ''
 }
 
 const calculateAge = (birthdate: string) => {
