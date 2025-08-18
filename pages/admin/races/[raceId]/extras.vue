@@ -363,7 +363,7 @@ onMounted(() => {
 })
 
 definePageMeta({
-  middleware: ['auth'],
+  middleware: ['auth', 'organization-admin'],
   layout: 'admin'
 })
 </script>

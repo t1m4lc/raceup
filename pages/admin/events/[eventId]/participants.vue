@@ -454,6 +454,7 @@ onMounted(() => {
 
 // This is needed for layout
 definePageMeta({
-  layout: 'admin'
+  layout: 'admin',
+  middleware: 'organization-admin'
 })
 </script>

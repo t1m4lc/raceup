@@ -8,7 +8,7 @@
             <div class="text-2xl">⚡</div>
             <div>
               <h1 class="text-2xl font-bold text-gray-900">Master Mode</h1>
-              <p class="text-sm text-gray-600">{{ user?.email }} | Super Admin Access</p>
+              <p class="text-sm text-gray-600">{{ user?.email }} | Master Mode Access</p>
             </div>
           </div>
           <Badge variant="destructive" class="text-xs">
@@ -83,6 +83,12 @@
             <CardDescription>Manage Stripe Connect accounts for organizations</CardDescription>
           </CardHeader>
           <CardContent class="space-y-3">
+            <Button asChild variant="outline" class="w-full justify-start">
+              <NuxtLink to="/master/stripe-connect-admin">
+                <Settings class="h-4 w-4 mr-2" />
+                Stripe Connect Admin
+              </NuxtLink>
+            </Button>
             <Button asChild variant="outline" class="w-full justify-start">
               <NuxtLink to="/master/stripe-connect-manager">
                 <Link class="h-4 w-4 mr-2" />

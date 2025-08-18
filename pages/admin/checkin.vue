@@ -294,7 +294,7 @@ import ParticipantsList from '~/components/admin/ParticipantsList.vue'
 
 definePageMeta({
   layout: 'admin',
-  middleware: 'master-mode'
+  middleware: 'organization-admin'
 })
 
 const client = useSupabaseClient()

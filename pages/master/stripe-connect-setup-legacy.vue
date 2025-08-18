@@ -103,4 +103,8 @@ const createTestAccount = async () => {
 useHead({
   title: 'Stripe Connect Test Setup - RaceUp'
 })
+
+definePageMeta({
+  middleware: 'master-mode'
+})
 </script>

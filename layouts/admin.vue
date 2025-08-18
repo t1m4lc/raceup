@@ -29,6 +29,16 @@
           </li>
           <li>
             <NuxtLink 
+              to="/admin/payment-setup" 
+              class="flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors"
+              :class="{ 'bg-secondary text-secondary-foreground': isActive('/admin/payment-setup'), 'hover:bg-accent hover:text-accent-foreground': !isActive('/admin/payment-setup') }"
+            >
+              <CreditCardIcon class="h-4 w-4" />
+              <span>Payment Setup</span>
+            </NuxtLink>
+          </li>
+          <li>
+            <NuxtLink 
               to="/tickets" 
               class="flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors"
               :class="{ 'bg-secondary text-secondary-foreground': isActive('/tickets'), 'hover:bg-accent hover:text-accent-foreground': !isActive('/tickets') }"
@@ -81,12 +91,13 @@ import {
   MenuIcon, 
   ScanLineIcon, 
   TicketIcon,
-  BellIcon
+  BellIcon,
+  CreditCardIcon
 } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 
 definePageMeta({
-  middleware: ['auth', 'master-mode']
+  middleware: ['auth', 'organization-admin']
 })
 
 // Check if the current route matches a path

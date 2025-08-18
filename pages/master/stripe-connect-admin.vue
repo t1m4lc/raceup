@@ -1,20 +1,7 @@
 <template>
   <div class="min-h-screen bg-gray-50">
-    <!-- Security Check -->
-    <div v-if="!isAuthorized" class="flex items-center justify-center min-h-screen">
-      <div class="bg-red-50 border border-red-200 p-6 rounded-lg max-w-md">
-        <h2 class="text-red-800 font-semibold mb-2">🚫 Access Denied</h2>
-        <p class="text-red-600 text-sm">This page is restricted to administrators only.</p>
-        <div class="mt-4">
-          <NuxtLink to="/login" class="text-blue-600 hover:underline">
-            Sign in with authorized account
-          </NuxtLink>
-        </div>
-      </div>
-    </div>
-
     <!-- Admin Interface -->
-    <div v-else class="container mx-auto p-6">
+    <div class="container mx-auto p-6">
       <div class="bg-white rounded-lg shadow-lg p-6">
         <h1 class="text-2xl font-bold mb-6 text-blue-800">
           🔐 Stripe Connect Admin Panel
@@ -22,7 +9,7 @@
         
         <div class="bg-blue-50 p-4 rounded mb-6">
           <p class="text-sm text-blue-700">
-            ✅ Welcome {{ user?.email }} - You have admin access
+            ✅ Welcome {{ user?.email }} - You have master mode access
           </p>
         </div>
 
@@ -145,26 +132,8 @@
 </template>
 
 <script setup lang="ts">
-// Security check
 const user = useSupabaseUser()
 const supabase = useSupabaseClient()
-
-// CONFIGURE YOUR ADMIN EMAIL HERE 👇
-const ADMIN_EMAILS = [
-  'your-email@example.com', // Replace with your actual email
-  'timothy@yourcompany.com', // Add more emails as needed
-]
-
-const isAuthorized = computed(() => {
-  return user.value && ADMIN_EMAILS.includes(user.value.email)
-})
-
-// Redirect if not logged in
-watchEffect(() => {
-  if (user.value === null) {
-    navigateTo('/login')
-  }
-})
 
 // Data
 const organizations = ref([])
@@ -297,9 +266,7 @@ const testWebhook = async () => {
 
 // Load data on mount
 onMounted(() => {
-  if (isAuthorized.value) {
-    loadOrganizations()
-  }
+  loadOrganizations()
 })
 
 // Meta
@@ -310,5 +277,9 @@ useHead({
 // Prevent indexing
 useServerSeoMeta({
   robots: 'noindex, nofollow'
+})
+
+definePageMeta({
+  middleware: 'master-mode'
 })
 </script>
