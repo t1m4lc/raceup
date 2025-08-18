@@ -54,35 +54,32 @@
                 </div>
                 
                 <div class="space-y-3 mt-3">
-                  <div v-for="(participant, participantIndex) in item.participants" :key="participantIndex" class="bg-muted/50 p-4 rounded-md">
-                    <div class="flex justify-between">
-                      <p class="text-sm font-medium">{{ participant.full_name || 'Unnamed participant' }}</p>
+                  <div v-for="(participant, participantIndex) in item.participants" :key="participantIndex" class="bg-muted/50 p-3 rounded-md">
+                    <div class="flex justify-between items-start">
+                      <div class="flex-1">
+                        <p class="font-medium">{{ getParticipantDisplayName(participant) }}</p>
+                        <p class="text-xs text-muted-foreground">{{ formatDate(participant.birthdate) }}</p>
+                        
+                        <!-- Registration price -->
+                        <div class="mt-2 space-y-1">
+                          <div class="flex justify-between text-sm">
+                            <span>Race registration</span>
+                            <span class="font-medium">{{ getRegistrationPrice(item.raceId, item.currency) }}</span>
+                          </div>
+                          
+                          <!-- Extras if any -->
+                          <div v-if="participant.extras && participant.extras.length > 0">
+                            <div v-for="(extra, idx) in participant.extras" :key="idx" class="flex justify-between text-sm">
+                              <span>{{ getExtraDisplayName(extra) }}</span>
+                              <span class="font-medium">{{ getExtraPrice(extra, item.raceId, item.currency) }}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      
                       <Button variant="ghost" size="icon" @click="() => removeParticipant(item.id, participantIndex)" class="h-6 w-6">
                         <XIcon class="h-3 w-3" />
                       </Button>
-                    </div>
-                    
-                    <div class="text-xs text-muted-foreground mt-1 space-y-1">
-                      <div class="flex justify-between">
-                        <span class="font-medium">Gender:</span>
-                        <span>{{ participant.gender }}</span>
-                      </div>
-                      <div class="flex justify-between" v-if="participant.birthdate">
-                        <span class="font-medium">Date of birth:</span>
-                        <span>{{ formatDate(participant.birthdate) }}</span>
-                      </div>
-                      <div v-if="participant.certificate_url" class="flex justify-between">
-                        <span class="font-medium">Certificate:</span>
-                        <span>Uploaded ✓</span>
-                      </div>
-                      <div v-if="participant.extras && participant.extras.length > 0" class="mt-2">
-                        <p class="font-medium mb-1">Extras:</p>
-                        <ul class="list-disc list-inside ml-1">
-                          <li v-for="(extra, idx) in participant.extras" :key="idx">
-                            {{ extra }}
-                          </li>
-                        </ul>
-                      </div>
                     </div>
                   </div>
                 </div>
@@ -95,11 +92,6 @@
         <div v-if="cartItems.length > 0" class="border-t p-5 bg-background">
           <!-- Cart summary with extra information -->
           <div class="space-y-2 mb-4">
-            <div v-if="totalExtras > 0" class="flex justify-between text-sm">
-              <span>Total extras selected</span>
-              <span>{{ totalExtras }}</span>
-            </div>
-            
             <!-- Subtotal -->
             <div class="flex justify-between text-sm pt-2">
               <span>Subtotal</span>
@@ -145,7 +137,7 @@
 import { storeToRefs } from 'pinia'
 import { useCartStore, type CartItem } from '~/stores/cart'
 import { ShoppingCartIcon, XIcon, HelpCircleIcon } from 'lucide-vue-next'
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -161,6 +153,10 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 const { $dayjs } = useNuxtApp()
 const router = useRouter()
 const cartStore = useCartStore()
+const { fetchPricing, getExtraPriceByName, formatPrice: formatPriceUtil } = usePricing()
+
+const isLoading = ref(false)
+const pricingData = ref<Map<string, any>>(new Map())
 
 // Extract reactive state properties using storeToRefs
 const { items: cartItems, isCartOpen } = storeToRefs(cartStore)
@@ -171,6 +167,39 @@ const {
   formattedFeesAmount,
   feeAllocationLabel
 } = storeToRefs(cartStore)
+
+// Load pricing data for all races in cart
+const loadPricingData = async () => {
+  isLoading.value = true
+  for (const item of cartItems.value) {
+    if (!pricingData.value.has(item.raceId)) {
+      try {
+        console.log(`Loading pricing for race ${item.raceId}`)
+        const pricing = await fetchPricing(item.raceId)
+        console.log(`Pricing loaded for race ${item.raceId}:`, pricing)
+        pricingData.value.set(item.raceId, pricing)
+      } catch (error) {
+        console.error(`Failed to load pricing for race ${item.raceId}:`, error)
+        // Set a fallback pricing structure
+        pricingData.value.set(item.raceId, {
+          race: {
+            id: item.raceId,
+            name: item.raceName,
+            price_cents: item.price || 0,
+            currency: item.currency || 'EUR'
+          },
+          extras: []
+        })
+      }
+    }
+  }
+  isLoading.value = false
+}
+
+// Watch for cart changes and load pricing
+watch(cartItems, () => {
+  loadPricingData()
+}, { immediate: true })
 
 // Compute total extras across all participants
 const totalExtras = computed(() => {
@@ -199,6 +228,76 @@ const removeParticipant = (itemId: string, participantIndex: number) => {
 
 const formatDate = (date: string) => {
   return $dayjs(date).format('MMM D, YYYY')
+}
+
+// Function to get participant display name
+const getParticipantDisplayName = (participant: any) => {
+  if (participant.first_name && participant.last_name) {
+    return `${participant.first_name} ${participant.last_name}`.trim()
+  }
+  return 'Unnamed participant'
+}
+
+// Function to get extra display name (handle both string and object formats)
+const getExtraDisplayName = (extra: any) => {
+  if (typeof extra === 'string') {
+    return extra
+  }
+  if (extra.name) {
+    return extra.quantity > 1 ? `${extra.name} (${extra.quantity}x)` : extra.name
+  }
+  return 'Unknown extra'
+}
+
+// Function to format price
+const formatPrice = (priceCents: number, currency: string = 'EUR') => {
+  return formatPriceUtil(priceCents, currency)
+}
+
+// Function to get extra price from backend data
+const getExtraPrice = (extra: any, raceId: string, currency: string = 'EUR') => {
+  // For CartExtra objects, use the stored price directly
+  if (typeof extra === 'object' && extra.price && extra.quantity) {
+    return formatPrice(extra.price * extra.quantity * 100, currency) // Convert euros to cents for formatting
+  }
+  
+  // Fallback to backend pricing for string format
+  const pricing = pricingData.value.get(raceId)
+  if (!pricing) {
+    return formatPrice(0, currency)
+  }
+  
+  let extraName = ''
+  let quantity = 1
+  
+  if (typeof extra === 'string') {
+    // Extract quantity from text like "Event T-Shirt (2x)"
+    const quantityMatch = extra.match(/\((\d+)x\)/)
+    quantity = quantityMatch ? parseInt(quantityMatch[1]) : 1
+    // Extract the actual extra name (remove quantity part)
+    extraName = extra.replace(/\s*\(\d+x\)/, '').trim()
+  } else if (extra.name) {
+    extraName = extra.name
+    quantity = extra.quantity || 1
+  }
+  
+  const priceCents = getExtraPriceByName(pricing, extraName)
+  return formatPrice(priceCents * quantity, currency)
+}
+
+// Function to get registration price from backend data
+const getRegistrationPrice = (raceId: string, currency: string = 'EUR') => {
+  const pricing = pricingData.value.get(raceId)
+  if (!pricing) {
+    // Fallback to cart item price if pricing not loaded
+    const cartItem = cartItems.value.find(item => item.raceId === raceId)
+    if (cartItem) {
+      return formatPrice(cartItem.price, currency)
+    }
+    return formatPrice(0, currency)
+  }
+  
+  return formatPrice(pricing.race.price_cents, currency)
 }
 
 const goToCheckout = () => {

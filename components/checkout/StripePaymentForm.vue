@@ -50,7 +50,10 @@ const props = defineProps({
   }
 });
 
-const emit = defineEmits(['payment-succeeded', 'payment-failed']);
+const emit = defineEmits<{
+  'payment-success': [paymentIntent: any]
+  'payment-error': [error: any]
+}>();
 
 const { stripe, isLoading: stripeLoading } = useClientStripe();
 const loading = ref(stripeLoading.value);
@@ -112,16 +115,11 @@ const handleSubmit = async () => {
     if (submitError) {
       // Show error to customer
       paymentMessage.value = submitError.message || 'An unexpected error occurred.';
-      emit('payment-failed', {
-        ticketId: props.ticketId,
-        error: submitError
-      });
+      emit('payment-error', submitError);
     } else {
       // The payment has been processed!
       paymentMessage.value = 'Payment successful!';
-      emit('payment-succeeded', {
-        ticketId: props.ticketId
-      });
+      emit('payment-success', { ticketId: props.ticketId });
       
       // Navigate to confirmation page
       navigateTo(`/payment/confirmation/${props.ticketId}`);
@@ -129,10 +127,7 @@ const handleSubmit = async () => {
   } catch (err) {
     console.error('Payment confirmation error:', err);
     paymentMessage.value = 'An unexpected error occurred. Please try again.';
-    emit('payment-failed', {
-      ticketId: props.ticketId,
-      error: err
-    });
+    emit('payment-error', err);
   } finally {
     isProcessing.value = false;
   }

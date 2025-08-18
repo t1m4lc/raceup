@@ -4,14 +4,8 @@
       <h1 class="text-4xl font-bold">RaceUp</h1>
       <p class="text-xl text-muted-foreground">Find your next running challenge</p>
       
-      <!-- Onboarding CTA -->
       <div class="mt-6 flex flex-col sm:flex-row gap-4 justify-center items-center">
-        <Button asChild class="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700">
-          <NuxtLink to="/onboarding">
-            Get Started - Create Your Profile 🚀
-          </NuxtLink>
-        </Button>
-        
+
         <Button asChild variant="outline">
           <NuxtLink to="/organizations">
             Browse Organizations
@@ -114,40 +108,17 @@ const fetchEvents = async () => {
   error.value = ''
   
   try {
-    // Try the new simplified schema first
-    let { data, error: err } = await client
+    // Fetch upcoming events from the events table
+    const { data, error: err } = await client
       .from('events')
-      .select('*')
+      .select(`
+        *,
+        organization:organizations(*)
+      `)
       .order('start_date', { ascending: true })
       .gte('end_date', new Date().toISOString()) // Only upcoming events
     
-    // If that fails, try the old complex schema
-    if (err) {
-      console.log('Trying old schema with event_editions...')
-      const { data: editionsData, error: editionsErr } = await client
-        .from('event_editions')
-        .select(`
-          id, name, description, start_date, end_date, location, slug,
-          event_root:event_roots(
-            organization:organizations(*)
-          )
-        `)
-        .order('start_date', { ascending: true })
-        .gte('end_date', new Date().toISOString())
-      
-      if (editionsErr) throw editionsErr
-      
-      // Transform the data to match expected format
-      data = editionsData?.map(edition => ({
-        id: edition.id,
-        name: edition.name,
-        description: edition.description,
-        start_date: edition.start_date,
-        end_date: edition.end_date,
-        location: edition.location,
-        slug: edition.slug
-      })) || []
-    }
+    if (err) throw err
     
     events.value = data || []
   } catch (err) {

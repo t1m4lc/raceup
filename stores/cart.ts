@@ -2,14 +2,18 @@
 import { defineStore } from "pinia";
 import { v4 as uuidv4 } from "uuid";
 import { useCommission as useCommissionHook } from "~/composables/useCommission";
-import { useLocalStorage } from "@vueuse/core";
+import type { CartExtra } from "~/types/participant";
 
 export type CartParticipant = {
-  full_name: string;
+  first_name: string;
+  last_name: string;
   birthdate: string;
   gender: string;
   certificate_url?: string;
-  extras: string[];
+  extras: CartExtra[];
+  emergencyContactName?: string;
+  emergencyContactPhone?: string;
+  medicalNotes?: string;
 };
 
 export type CartItem = {
@@ -55,7 +59,24 @@ export const useCartStore = defineStore("cart", {
 
     subtotalPrice(state: CartState): number {
       return state.items.reduce((total: number, item: CartItem) => {
-        return total + item.price * item.participants.length;
+        // Calculate base race price (already in cents)
+        const raceTotal = item.price * item.participants.length;
+
+        // Calculate extras total
+        const extrasTotal = item.participants.reduce(
+          (participantTotal: number, participant: CartParticipant) => {
+            const participantExtrasTotal = participant.extras.reduce(
+              (extrasSum: number, extra: CartExtra) => {
+                return extrasSum + extra.price * extra.quantity * 100; // Convert euros to cents
+              },
+              0
+            );
+            return participantTotal + participantExtrasTotal;
+          },
+          0
+        );
+
+        return total + raceTotal + extrasTotal;
       }, 0);
     },
 

@@ -269,8 +269,21 @@ const fetchTicket = async () => {
   error.value = ''
   
   try {
-    // Fetch ticket details from API
-    const response = await $fetch(`/api/tickets/${ticketId}`)
+    // The ticketId parameter might be a payment intent ID if coming from new flow
+    // First try to fetch as ticket ID, if not found, try to find by payment intent ID
+    let response;
+    try {
+      response = await $fetch(`/api/tickets/${ticketId}`)
+    } catch (ticketError) {
+      // If ticket not found, try to find tickets by payment intent ID
+      const ticketsResponse = await $fetch(`/api/tickets/by-payment-intent/${ticketId}`)
+      if (ticketsResponse && ticketsResponse.tickets && ticketsResponse.tickets.length > 0) {
+        response = ticketsResponse.tickets[0] // Use first ticket for display
+      } else {
+        throw ticketError
+      }
+    }
+    
     ticket.value = response
     
     // Set payment status based on ticket status

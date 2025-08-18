@@ -53,8 +53,11 @@
             :available-extras="availableExtras"
             :extra-selections="extraSelections"
             :race="race"
+            :is-logged-in="!!user"
+            :user-profile="userProfile"
             @update:participant-count="participantCount = $event"
             @update:participants="updateParticipantForms"
+            @update:participant="updateParticipant"
             @update:active-tab="activeTab = String($event)"
             @update:extras="updateExtras"
             @next-step="nextStep"
@@ -67,15 +70,15 @@
 
     <!-- Mobile Drawer (<1024px) -->
     <Drawer :open="open && (mode === 'drawer' || (!mode && isMobile))" @update:open="(value) => $emit('update:open', value)">
-      <DrawerContent class="max-h-[90vh]">
-        <DrawerHeader class="pb-2">
+      <DrawerContent class="max-h-[90vh] flex flex-col">
+        <DrawerHeader class="pb-2 flex-shrink-0">
           <div class="flex items-center justify-between">
             <DrawerTitle class="text-lg">Register for {{ race?.name }}</DrawerTitle>
             <span class="font-semibold text-primary">{{ formatPrice(race?.price_cents, race?.currency) }}</span>
           </div>
         </DrawerHeader>
         
-        <div class="px-4 pb-4">
+        <div class="px-4 pb-4 flex-grow overflow-y-auto">
 
           <RegistrationSteps 
             :current-step="currentStep"
@@ -85,8 +88,11 @@
             :available-extras="availableExtras"
             :extra-selections="extraSelections"
             :race="race"
+            :is-logged-in="!!user"
+            :user-profile="userProfile"
             @update:participant-count="participantCount = $event"
             @update:participants="updateParticipantForms"
+            @update:participant="updateParticipant"
             @update:active-tab="activeTab = String($event)"
             @update:extras="updateExtras"
             @next-step="nextStep"
@@ -116,6 +122,7 @@ import {
 } from '@/components/ui/drawer'
 import RegistrationSteps from '@/components/cart/RegistrationSteps.vue'
 import { useCartStore } from '@/stores/cart'
+import type { CartParticipant } from '@/types/participant'
 
 const props = defineProps<{
   open: boolean
@@ -136,6 +143,10 @@ const isMobile = computed(() => width.value < 1024) // lg breakpoint
 // Cart store
 const cartStore = useCartStore()
 
+// User state
+const user = useSupabaseUser()
+const userProfile = ref<any>(null) // This would be loaded from a profile API
+
 // Steps configuration
 const steps = [
   { title: 'Participants', description: 'How many people?' },
@@ -146,12 +157,7 @@ const steps = [
 // State
 const currentStep = ref(0)
 const participantCount = ref(1)
-const participants = ref<Array<{
-  full_name: string
-  birthdate: string
-  gender: string
-  extras: string[]
-}>>([])
+const participants = ref<CartParticipant[]>([])
 const activeTab = ref('participant-0')
 const availableExtras = ref([
   { id: 'tshirt', name: 'Event T-Shirt', price_cents: 2500 },
@@ -185,10 +191,15 @@ const prevStep = () => {
 const updateParticipantForms = () => {
   const count = participantCount.value
   participants.value = Array.from({ length: count }, (_, index) => ({
-    full_name: '',
+    first_name: '',
+    last_name: '',
     birthdate: '',
     gender: '',
-    extras: []
+    extras: [], // Now properly typed as CartExtra[]
+    isUser: false,
+    emergencyContactName: '',
+    emergencyContactPhone: '',
+    medicalNotes: ''
   }))
   
   // Reset extra selections
@@ -204,39 +215,59 @@ const updateParticipantForms = () => {
 }
 
 const updateExtras = (participantIndex: number) => {
-  const selectedExtras: string[] = []
-  Object.entries(extraSelections.value[participantIndex]).forEach(([extraId, selected]) => {
-    if (selected) {
-      const extra = availableExtras.value.find(e => e.id === extraId)
-      if (extra) {
-        selectedExtras.push(extra.name)
-      }
-    }
-  })
-  participants.value[participantIndex].extras = selectedExtras
+  // This function is now handled by the individual ParticipantForm components
+  // via the new updateParticipant function
+}
+
+const updateParticipant = (index: number, updatedParticipant: CartParticipant) => {
+  // Use Vue's reactivity to ensure updates are detected
+  participants.value = [
+    ...participants.value.slice(0, index),
+    updatedParticipant,
+    ...participants.value.slice(index + 1)
+  ]
 }
 
 const addToCart = () => {
   if (!props.race) return
   
+  // Convert participants to the format expected by the cart store
+  const cartParticipants = participants.value.map(participant => {
+    return {
+      first_name: participant.first_name,
+      last_name: participant.last_name,
+      birthdate: participant.birthdate,
+      gender: participant.gender,
+      extras: participant.extras || [], // Keep as CartExtra[] objects
+      certificate_url: participant.certificate_url,
+      emergencyContactName: participant.emergencyContactName,
+      emergencyContactPhone: participant.emergencyContactPhone,
+      medicalNotes: participant.medicalNotes
+    }
+  })
+  
   // Generate unique ID for the cart item
   const itemId = Date.now().toString() + Math.random().toString(36).substr(2, 9)
   
   // Create cart item from current registration data
+  // Keep the original race price - extras will be handled separately in display
   const cartItem = {
     id: itemId,
     raceId: props.race.id,
     raceName: props.race.name,
     raceDate: props.race.start_time,
-    distance: props.race.distance || 0,
-    price: props.race.price_cents,
+    distance: props.race.distance_km || 0,
+    price: props.race.price_cents, // Base price per participant
     currency: props.race.currency || 'EUR',
-    participants: participants.value,
+    participants: cartParticipants,
     organizationId: props.race.organization_id || ''
   }
   
   // Add to cart store
   cartStore.addItem(cartItem)
+  
+  // Open cart after adding item
+  cartStore.openCart()
   
   // Emit events
   emit('added-to-cart')

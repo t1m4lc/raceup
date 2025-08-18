@@ -53,12 +53,15 @@ const userName = computed(() => {
 
 const userInitials = computed(() => {
   if (user.value?.user_metadata?.full_name) {
-    return user.value.user_metadata.full_name
-      .split(' ')
-      .map((n: string) => n[0])
-      .join('')
-      .toUpperCase()
-      .substring(0, 2)
+    const fullName = user.value.user_metadata.full_name.trim()
+    if (fullName) {
+      return fullName
+        .split(' ')
+        .map((n: string) => n[0])
+        .join('')
+        .toUpperCase()
+        .substring(0, 2)
+    }
   }
   return (user.value?.email?.substring(0, 2) || 'U').toUpperCase()
 })

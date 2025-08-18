@@ -55,4 +55,11 @@ export default defineNuxtConfig({
     defaultLocale: "fr",
     defaultTimezone: "Europe/Paris",
   },
+  runtimeConfig: {
+    stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET || "",
+    stripeConnectWebhookSecret: process.env.STRIPE_CONNECT_WEBHOOK_SECRET || "",
+    public: {
+      stripePublicKey: process.env.STRIPE_PUBLIC_KEY || "",
+    },
+  },
 });

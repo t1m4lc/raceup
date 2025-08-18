@@ -278,6 +278,7 @@
 <script setup lang="ts">
 import { ref, reactive, watch } from 'vue'
 import { useCartStore, type CartParticipant } from '~/stores/cart'
+import type { CartExtra } from '~/types/participant'
 import { CalendarIcon } from 'lucide-vue-next'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import {
@@ -358,7 +359,8 @@ const updateParticipantForms = () => {
     while (participants.value.length < count) {
       const newIndex = participants.value.length
       participants.value.push({
-        full_name: '',
+        first_name: '',
+        last_name: '',
         birthdate: '',
         gender: '',
         extras: []
@@ -377,11 +379,16 @@ const updateParticipantForms = () => {
 
 // Update extras when checkboxes change
 const updateExtras = (participantIndex: number) => {
-  const selectedExtras: string[] = []
+  const selectedExtras: CartExtra[] = []
   
   availableExtras.forEach(extra => {
     if (extraSelections[participantIndex][extra.id]) {
-      selectedExtras.push(extra.name)
+      selectedExtras.push({
+        id: extra.id,
+        name: extra.name,
+        price: extra.price_cents / 100, // Convert cents to euros
+        quantity: 1, // Default quantity is 1 for checkboxes
+      })
     }
   })
   
@@ -396,7 +403,7 @@ const nextStep = () => {
   } else if (currentStep.value === 1) {
     // Validate participant details
     const allValid = participants.value.every(p => 
-      p.full_name && p.birthdate && p.gender
+      p.first_name && p.last_name && p.birthdate && p.gender
     )
     
     if (!allValid) {

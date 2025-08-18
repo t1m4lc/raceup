@@ -36,7 +36,7 @@
         <div class="flex flex-col md:flex-row md:items-end gap-6 bg-muted p-6 rounded-lg">
           <div class="flex-shrink-0">
             <Avatar class="h-24 w-24 border-4 border-background shadow-lg">
-              <AvatarImage :src="event.logo_url" :alt="event.name" />
+              <AvatarImage v-if="event.logo_url" :src="event.logo_url" :alt="event.name" />
               <AvatarFallback>{{ event.name.substring(0, 2).toUpperCase() }}</AvatarFallback>
             </Avatar>
           </div>
@@ -272,10 +272,10 @@
                   <div class="flex flex-wrap gap-3">
                     <div v-for="founder in founders" :key="founder.profile.id" class="flex items-center gap-2">
                       <Avatar class="h-7 w-7">
-                        <AvatarImage v-if="founder.profile.avatar_url" :src="founder.profile.avatar_url" :alt="founder.profile.full_name" />
-                        <AvatarFallback>{{ founder.profile.full_name.substring(0, 2).toUpperCase() }}</AvatarFallback>
+                        <AvatarImage v-if="founder.profile.avatar_url" :src="founder.profile.avatar_url" :alt="getDisplayName(founder.profile)" />
+                        <AvatarFallback>{{ getInitials(founder.profile) }}</AvatarFallback>
                       </Avatar>
-                      <span class="text-sm">{{ founder.profile.full_name }}</span>
+                      <span class="text-sm">{{ getDisplayName(founder.profile) }}</span>
                     </div>
                   </div>
                 </div>
@@ -286,10 +286,10 @@
                   <div class="flex flex-wrap gap-3">
                     <div v-for="volunteer in volunteers" :key="volunteer.profile.id" class="flex items-center gap-2">
                       <Avatar class="h-7 w-7">
-                        <AvatarImage v-if="volunteer.profile.avatar_url" :src="volunteer.profile.avatar_url" :alt="volunteer.profile.full_name" />
-                        <AvatarFallback>{{ volunteer.profile.full_name.substring(0, 2).toUpperCase() }}</AvatarFallback>
+                        <AvatarImage v-if="volunteer.profile.avatar_url" :src="volunteer.profile.avatar_url" :alt="getDisplayName(volunteer.profile)" />
+                        <AvatarFallback>{{ getInitials(volunteer.profile) }}</AvatarFallback>
                       </Avatar>
-                      <span class="text-sm">{{ volunteer.profile.full_name }}</span>
+                      <span class="text-sm">{{ getDisplayName(volunteer.profile) }}</span>
                     </div>
                   </div>
                 </div>
@@ -327,6 +327,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import RaceRegistrationDialog from '@/components/cart/RaceRegistrationDialog.vue'
+import { getDisplayName, getInitials } from '@/utils/nameHelpers'
 
 const route = useRoute()
 const router = useRouter()
@@ -533,7 +534,8 @@ const fetchEventData = async () => {
                   role: 'founder',
                   profile: {
                     id: founder.id,
-                    full_name: founder.full_name,
+                    first_name: founder.first_name,
+                    last_name: founder.last_name,
                     avatar_url: founder.avatar_url
                   }
                 })
@@ -548,7 +550,8 @@ const fetchEventData = async () => {
                       role: 'volunteer',
                       profile: {
                         id: volunteer.id,
-                        full_name: volunteer.full_name,
+                        first_name: volunteer.first_name,
+                        last_name: volunteer.last_name,
                         avatar_url: volunteer.avatar_url
                       }
                     })

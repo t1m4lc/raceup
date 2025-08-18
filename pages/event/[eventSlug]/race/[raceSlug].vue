@@ -302,7 +302,7 @@
               <div class="space-y-4">
                 <div class="flex gap-4 items-center">
                   <Avatar class="h-12 w-12 border border-border">
-                    <AvatarImage :src="event?.logo_url" />
+                    <AvatarImage v-if="event?.logo_url" :src="event.logo_url" />
                     <AvatarFallback>{{ event?.name?.substring(0, 2).toUpperCase() || 'EV' }}</AvatarFallback>
                   </Avatar>
                   <div>

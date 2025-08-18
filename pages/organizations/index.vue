@@ -128,13 +128,13 @@ async function fetchOrganizations() {
           `)
           .eq('organization_id', org.id);
           
-        // Fetch latest event
+        // Fetch latest event (using new events table)
         const { data: events } = await client
-          .from('event_editions')
+          .from('events')
           .select(`
             id, name, slug, start_date
           `)
-          .eq('event_root.organization_id', org.id)
+          .eq('organization_id', org.id)
           .order('start_date', { ascending: false })
           .limit(1);
           

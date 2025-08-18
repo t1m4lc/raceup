@@ -29,18 +29,33 @@
                     
                     <div class="mt-3">
                       <p class="text-sm font-medium mb-2">Participants:</p>
-                      <ul class="space-y-2 pl-2">
-                        <li v-for="(participant, index) in item.participants" :key="index" class="text-sm">
-                          <span class="font-medium">{{ participant.full_name }}</span>
-                          <div v-if="participant.extras && participant.extras.length > 0" class="text-xs text-muted-foreground mt-1">
-                            Extras: {{ participant.extras.join(', ') }}
+                      <ul class="space-y-3 pl-2">
+                        <li v-for="(participant, index) in item.participants" :key="index" class="text-sm border-l-2 border-gray-100 pl-3">
+                          <div class="font-medium">{{ getParticipantDisplayName(participant) }}</div>
+                          <div class="text-xs text-muted-foreground mt-1">
+                            <div class="flex justify-between">
+                              <span>Registration fee:</span>
+                              <span class="font-medium">{{ getRegistrationPrice(item.raceId, item.currency) }}</span>
+                            </div>
+                          </div>
+                          <div v-if="participant.extras && participant.extras.length > 0" class="text-xs text-muted-foreground mt-2">
+                            <div class="font-medium mb-1">Extras:</div>
+                            <div v-for="extra in participant.extras" :key="extra.id || extra" class="flex justify-between">
+                              <span>{{ getExtraDisplayName(extra) }}</span>
+                              <span class="font-medium">{{ getExtraPrice(extra, item.raceId, item.currency) }}</span>
+                            </div>
                           </div>
                         </li>
                       </ul>
                     </div>
                   </div>
                   <div class="text-right">
-                    <p class="font-medium">{{ formatPrice(item.price * item.participants.length, item.currency) }}</p>
+                    <div class="space-y-1">
+                      <div class="text-sm text-muted-foreground">
+                        {{ item.participants.length }} participant{{ item.participants.length > 1 ? 's' : '' }}
+                      </div>
+                      <p class="font-medium">{{ formatPrice(getTotalItemPrice(item), item.currency) }}</p>
+                    </div>
                     <Button 
                       variant="ghost" 
                       size="sm" 
@@ -94,10 +109,22 @@
               <CardTitle>Payment Summary</CardTitle>
             </CardHeader>
             <CardContent>
-              <div class="space-y-2">
-                <div class="flex justify-between">
-                  <span>Subtotal</span>
-                  <span>{{ formattedSubtotalPrice }}</span>
+              <div class="space-y-3">
+                <div class="text-sm space-y-2">
+                  <div class="flex justify-between">
+                    <span>Course registrations</span>
+                    <span>{{ formatPrice(courseTotal, 'EUR') }}</span>
+                  </div>
+                  <div class="flex justify-between">
+                    <span>Extras</span>
+                    <span>{{ formatPrice(extrasTotal, 'EUR') }}</span>
+                  </div>
+                  <div class="border-t pt-2">
+                    <div class="flex justify-between font-medium">
+                      <span>Subtotal</span>
+                      <span>{{ formattedSubtotalPrice }}</span>
+                    </div>
+                  </div>
                 </div>
                 <div class="flex justify-between text-sm">
                   <div class="flex items-center gap-1">
@@ -116,7 +143,7 @@
                   <span>{{ formattedFeesAmount }}</span>
                 </div>
                 <div class="border-t pt-2 mt-2">
-                  <div class="flex justify-between font-medium">
+                  <div class="flex justify-between font-medium text-lg">
                     <span>Total</span>
                     <span>{{ formattedTotalPrice }}</span>
                   </div>
@@ -165,6 +192,7 @@ const router = useRouter()
 const cartStore = useCartStore()
 const client = useSupabaseClient()
 const user = useSupabaseUser()
+const { fetchPricing, getExtraPriceByName, formatPrice: formatPriceUtil, calculateItemTotal } = usePricing()
 
 // Extract reactive state properties using storeToRefs
 const { items: cartItems } = storeToRefs(cartStore)
@@ -176,6 +204,7 @@ const {
 
 const isProcessing = ref(false)
 const userProfile = ref<any>(null)
+const pricingData = ref<Map<string, any>>(new Map())
 
 const contactInfo = ref({
   firstName: '',
@@ -183,6 +212,25 @@ const contactInfo = ref({
   email: '',
   phone: ''
 })
+
+// Load pricing data for all races in cart
+const loadPricingData = async () => {
+  for (const item of cartItems.value) {
+    if (!pricingData.value.has(item.raceId)) {
+      try {
+        const pricing = await fetchPricing(item.raceId)
+        pricingData.value.set(item.raceId, pricing)
+      } catch (error) {
+        console.error(`Failed to load pricing for race ${item.raceId}:`, error)
+      }
+    }
+  }
+}
+
+// Watch for cart changes and load pricing
+watch(cartItems, () => {
+  loadPricingData()
+}, { immediate: true })
 
 // Fetch user profile data and prefill contact info
 const loadUserProfile = async () => {
@@ -261,11 +309,84 @@ const formatDate = (date: string) => {
 }
 
 const formatPrice = (priceCents: number, currency: string = 'EUR') => {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: currency || 'EUR',
-  }).format(priceCents / 100)
+  return formatPriceUtil(priceCents, currency)
 }
+
+const getParticipantDisplayName = (participant: any) => {
+  const firstName = participant.first_name || ''
+  const lastName = participant.last_name || ''
+  return `${firstName} ${lastName}`.trim() || 'Unnamed participant'
+}
+
+const getExtraDisplayName = (extra: any) => {
+  if (typeof extra === 'string') {
+    return extra
+  }
+  if (extra.name) {
+    return extra.quantity > 1 ? `${extra.name} (${extra.quantity}x)` : extra.name
+  }
+  return 'Unknown extra'
+}
+
+const getExtraPrice = (extra: any, raceId: string, currency: string = 'EUR') => {
+  // For CartExtra objects, use the stored price directly
+  if (typeof extra === 'object' && extra.price && extra.quantity) {
+    return formatPrice(extra.price * extra.quantity * 100, currency) // Convert euros to cents for formatting
+  }
+  
+  // Fallback to backend pricing for string format
+  const pricing = pricingData.value.get(raceId)
+  if (!pricing) return formatPrice(0, currency)
+  
+  let extraName = ''
+  if (typeof extra === 'string') {
+    extraName = extra.replace(/\s*\(\d+x\)/, '').trim() // Remove quantity part
+  } else if (extra.name) {
+    extraName = extra.name
+  }
+  
+  const priceCents = getExtraPriceByName(pricing, extraName)
+  return formatPrice(priceCents, currency)
+}
+
+const getRegistrationPrice = (raceId: string, currency: string = 'EUR') => {
+  const pricing = pricingData.value.get(raceId)
+  if (!pricing) return formatPrice(0, currency)
+  
+  return formatPrice(pricing.race.price_cents, currency)
+}
+
+const getTotalItemPrice = (item: any) => {
+  const pricing = pricingData.value.get(item.raceId)
+  if (!pricing) return item.price * item.participants.length // Fallback to cart price
+  
+  return calculateItemTotal(pricing, item)
+}
+
+// Computed values for the price breakdown
+const courseTotal = computed(() => {
+  return cartItems.value.reduce((total, item) => {
+    const pricing = pricingData.value.get(item.raceId)
+    if (!pricing) return total + (item.price * item.participants.length)
+    
+    return total + (pricing.race.price_cents * item.participants.length)
+  }, 0)
+})
+
+const extrasTotal = computed(() => {
+  return cartItems.value.reduce((total, item) => {
+    let itemExtrasTotal = 0
+    for (const participant of item.participants) {
+      if (participant.extras && participant.extras.length > 0) {
+        for (const extra of participant.extras) {
+          // Since extras are now CartExtra objects, use the stored price directly
+          itemExtrasTotal += extra.price * extra.quantity * 100 // Convert euros to cents
+        }
+      }
+    }
+    return total + itemExtrasTotal
+  }, 0)
+})
 
 const proceedToPayment = async () => {
   if (!canProceed.value) return
@@ -273,14 +394,29 @@ const proceedToPayment = async () => {
   isProcessing.value = true
   
   try {
-    // In a real application, you would call your API to create a Stripe payment intent
-    // For demo purposes, we'll simulate this with a timeout
-    await new Promise(resolve => setTimeout(resolve, 1500))
+    // Create payment intent via NEW API (no database writes until payment success)
+    const response = await $fetch('/api/payments/create-payment-intent', {
+      method: 'POST',
+      body: {
+        cartItems: cartItems.value,
+        contactInfo: contactInfo.value,
+        commissionConfig: cartStore.commissionConfig,
+      }
+    })
+
+    // Store payment details for confirmation page
+    localStorage.setItem('stripeClientSecret', response.clientSecret)
+    localStorage.setItem('stripePaymentIntentId', response.paymentIntentId)
     
-    // Redirect to payment confirmation
-    router.push('/payment/confirmation/demo')
-  } catch (error) {
+    // Since no tickets are created yet, we'll use the payment intent ID as reference
+    // The actual tickets will be created after successful payment via webhook
+    router.push(`/payment/checkout/${response.paymentIntentId}`)
+  } catch (error: any) {
     console.error('Payment processing error:', error)
+    
+    // Show error to user
+    const errorMessage = error.data?.message || error.message || 'Failed to create payment'
+    alert(`Payment Error: ${errorMessage}`)
   } finally {
     isProcessing.value = false
   }

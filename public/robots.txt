@@ -1,2 +1,8 @@
 User-Agent: *
-Disallow:
+Disallow: /master/
+Disallow: /admin/
+Disallow: /test-*
+
+# Block admin areas from crawlers but allow access
+User-agent: *
+Crawl-delay: 10

@@ -1,23 +1,12 @@
-// composables/useCart.ts
-import { ref, computed } from "vue";
+import { computed } from "vue";
+import type { CartItem, CartParticipant } from "~/stores/cart";
 
-export type CartParticipant = {
-  full_name: string;
-  birthdate: string;
-  gender: string;
-  certificate_url?: string;
-  extras: string[];
-};
-
-export type CartItem = {
+export type CartExtra = {
   id: string;
-  raceId: string;
-  raceName: string;
-  raceDate: string;
-  distance: number;
+  name: string;
   price: number;
-  currency: string;
-  participants: CartParticipant[];
+  quantity: number;
+  maxQuantity?: number;
 };
 
 export const useCart = () => {

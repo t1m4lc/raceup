@@ -77,6 +77,90 @@ export type Database = {
           },
         ]
       }
+      individual_tickets: {
+        Row: {
+          checked_in_at: string | null
+          checked_in_by: string | null
+          created_at: string | null
+          id: string
+          is_user_linked: boolean | null
+          linked_user_id: string | null
+          medical_validated: boolean | null
+          participant_id: string
+          qr_code_data: string
+          status: string | null
+          ticket_id: string
+          ticket_number: string
+          updated_at: string | null
+        }
+        Insert: {
+          checked_in_at?: string | null
+          checked_in_by?: string | null
+          created_at?: string | null
+          id?: string
+          is_user_linked?: boolean | null
+          linked_user_id?: string | null
+          medical_validated?: boolean | null
+          participant_id: string
+          qr_code_data: string
+          status?: string | null
+          ticket_id: string
+          ticket_number: string
+          updated_at?: string | null
+        }
+        Update: {
+          checked_in_at?: string | null
+          checked_in_by?: string | null
+          created_at?: string | null
+          id?: string
+          is_user_linked?: boolean | null
+          linked_user_id?: string | null
+          medical_validated?: boolean | null
+          participant_id?: string
+          qr_code_data?: string
+          status?: string | null
+          ticket_id?: string
+          ticket_number?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "individual_tickets_checked_in_by_fkey"
+            columns: ["checked_in_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "individual_tickets_linked_user_id_fkey"
+            columns: ["linked_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "individual_tickets_participant_id_fkey"
+            columns: ["participant_id"]
+            isOneToOne: false
+            referencedRelation: "participants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "individual_tickets_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "ticket_totals"
+            referencedColumns: ["ticket_id"]
+          },
+          {
+            foreignKeyName: "individual_tickets_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organizations: {
         Row: {
           banner_url: string | null
@@ -88,6 +172,7 @@ export type Database = {
           name: string
           slug: string
           stripe_account_id: string | null
+          stripe_onboarding_completed: boolean | null
           updated_at: string | null
           volunteers: string[] | null
         }
@@ -101,6 +186,7 @@ export type Database = {
           name: string
           slug: string
           stripe_account_id?: string | null
+          stripe_onboarding_completed?: boolean | null
           updated_at?: string | null
           volunteers?: string[] | null
         }
@@ -114,6 +200,7 @@ export type Database = {
           name?: string
           slug?: string
           stripe_account_id?: string | null
+          stripe_onboarding_completed?: boolean | null
           updated_at?: string | null
           volunteers?: string[] | null
         }
@@ -127,49 +214,139 @@ export type Database = {
           },
         ]
       }
+      participant_extras: {
+        Row: {
+          created_at: string | null
+          currency: string
+          id: string
+          participant_id: string
+          quantity: number
+          race_extra_id: string
+          total_price_cents: number
+          unit_price_cents: number
+        }
+        Insert: {
+          created_at?: string | null
+          currency?: string
+          id?: string
+          participant_id: string
+          quantity?: number
+          race_extra_id: string
+          total_price_cents: number
+          unit_price_cents: number
+        }
+        Update: {
+          created_at?: string | null
+          currency?: string
+          id?: string
+          participant_id?: string
+          quantity?: number
+          race_extra_id?: string
+          total_price_cents?: number
+          unit_price_cents?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "participant_extras_participant_id_fkey"
+            columns: ["participant_id"]
+            isOneToOne: false
+            referencedRelation: "participants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "participant_extras_race_extra_id_fkey"
+            columns: ["race_extra_id"]
+            isOneToOne: false
+            referencedRelation: "race_extras"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "participant_extras_race_extra_id_fkey"
+            columns: ["race_extra_id"]
+            isOneToOne: false
+            referencedRelation: "race_extras_with_availability"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       participants: {
         Row: {
+          bib_number: string | null
+          bid_number: string | null
           birthdate: string
           certificate_url: string | null
           certificate_validated: boolean | null
           checkin_at: string | null
           created_at: string | null
-          full_name: string
+          emergency_contact_name: string | null
+          emergency_contact_phone: string | null
+          first_name: string
           gender: string
           id: string
+          last_name: string
+          medical_notes: string | null
           ticket_id: string
           updated_at: string | null
+          user_id: string | null
         }
         Insert: {
+          bib_number?: string | null
+          bid_number?: string | null
           birthdate: string
           certificate_url?: string | null
           certificate_validated?: boolean | null
           checkin_at?: string | null
           created_at?: string | null
-          full_name: string
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
+          first_name: string
           gender: string
           id?: string
+          last_name: string
+          medical_notes?: string | null
           ticket_id: string
           updated_at?: string | null
+          user_id?: string | null
         }
         Update: {
+          bib_number?: string | null
+          bid_number?: string | null
           birthdate?: string
           certificate_url?: string | null
           certificate_validated?: boolean | null
           checkin_at?: string | null
           created_at?: string | null
-          full_name?: string
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
+          first_name?: string
           gender?: string
           id?: string
+          last_name?: string
+          medical_notes?: string | null
           ticket_id?: string
           updated_at?: string | null
+          user_id?: string | null
         }
         Relationships: [
           {
             foreignKeyName: "participants_ticket_id_fkey"
             columns: ["ticket_id"]
             isOneToOne: false
+            referencedRelation: "ticket_totals"
+            referencedColumns: ["ticket_id"]
+          },
+          {
+            foreignKeyName: "participants_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
             referencedRelation: "tickets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "participants_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -222,6 +399,13 @@ export type Database = {
             foreignKeyName: "payments_ticket_id_fkey"
             columns: ["ticket_id"]
             isOneToOne: false
+            referencedRelation: "ticket_totals"
+            referencedColumns: ["ticket_id"]
+          },
+          {
+            foreignKeyName: "payments_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
             referencedRelation: "tickets"
             referencedColumns: ["id"]
           },
@@ -231,31 +415,108 @@ export type Database = {
         Row: {
           avatar_url: string | null
           created_at: string | null
+          date_of_birth: string | null
           email: string | null
-          full_name: string | null
+          emergency_contact_name: string | null
+          emergency_contact_phone: string | null
+          first_name: string | null
+          gender: string | null
           id: string
+          last_name: string | null
+          medical_notes: string | null
+          onboarding_completed: boolean | null
           phone: string | null
+          phone_number: string | null
           updated_at: string | null
         }
         Insert: {
           avatar_url?: string | null
           created_at?: string | null
+          date_of_birth?: string | null
           email?: string | null
-          full_name?: string | null
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
+          first_name?: string | null
+          gender?: string | null
           id: string
+          last_name?: string | null
+          medical_notes?: string | null
+          onboarding_completed?: boolean | null
           phone?: string | null
+          phone_number?: string | null
           updated_at?: string | null
         }
         Update: {
           avatar_url?: string | null
           created_at?: string | null
+          date_of_birth?: string | null
           email?: string | null
-          full_name?: string | null
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
+          first_name?: string | null
+          gender?: string | null
           id?: string
+          last_name?: string | null
+          medical_notes?: string | null
+          onboarding_completed?: boolean | null
           phone?: string | null
+          phone_number?: string | null
           updated_at?: string | null
         }
         Relationships: []
+      }
+      race_extras: {
+        Row: {
+          created_at: string | null
+          currency: string
+          description: string | null
+          display_order: number | null
+          id: string
+          is_active: boolean | null
+          max_quantity_per_participant: number | null
+          name: string
+          price_cents: number
+          race_id: string
+          total_available_quantity: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          currency?: string
+          description?: string | null
+          display_order?: number | null
+          id?: string
+          is_active?: boolean | null
+          max_quantity_per_participant?: number | null
+          name: string
+          price_cents: number
+          race_id: string
+          total_available_quantity?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          currency?: string
+          description?: string | null
+          display_order?: number | null
+          id?: string
+          is_active?: boolean | null
+          max_quantity_per_participant?: number | null
+          name?: string
+          price_cents?: number
+          race_id?: string
+          total_available_quantity?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "race_extras_race_id_fkey"
+            columns: ["race_id"]
+            isOneToOne: false
+            referencedRelation: "races"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       races: {
         Row: {
@@ -313,6 +574,10 @@ export type Database = {
       tickets: {
         Row: {
           buyer_id: string
+          contact_email: string | null
+          contact_first_name: string | null
+          contact_last_name: string | null
+          contact_phone: string | null
           created_at: string | null
           id: string
           quantity: number
@@ -324,6 +589,10 @@ export type Database = {
         }
         Insert: {
           buyer_id: string
+          contact_email?: string | null
+          contact_first_name?: string | null
+          contact_last_name?: string | null
+          contact_phone?: string | null
           created_at?: string | null
           id?: string
           quantity?: number
@@ -335,6 +604,10 @@ export type Database = {
         }
         Update: {
           buyer_id?: string
+          contact_email?: string | null
+          contact_first_name?: string | null
+          contact_last_name?: string | null
+          contact_phone?: string | null
           created_at?: string | null
           id?: string
           quantity?: number
@@ -363,15 +636,80 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      race_extras_with_availability: {
+        Row: {
+          created_at: string | null
+          currency: string | null
+          description: string | null
+          display_order: number | null
+          id: string | null
+          is_active: boolean | null
+          max_quantity_per_participant: number | null
+          name: string | null
+          price_cents: number | null
+          race_id: string | null
+          remaining_quantity: number | null
+          total_available_quantity: number | null
+          updated_at: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "race_extras_race_id_fkey"
+            columns: ["race_id"]
+            isOneToOne: false
+            referencedRelation: "races"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ticket_totals: {
+        Row: {
+          currency: string | null
+          extras_total_cents: number | null
+          participants_count: number | null
+          race_id: string | null
+          race_price_cents: number | null
+          race_total_cents: number | null
+          subtotal_cents: number | null
+          ticket_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tickets_race_id_fkey"
+            columns: ["race_id"]
+            isOneToOne: false
+            referencedRelation: "races"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       clean_slug: {
         Args: { input_text: string }
         Returns: string
       }
+      create_individual_ticket: {
+        Args: {
+          p_is_user_linked?: boolean
+          p_linked_user_id?: string
+          p_participant_id: string
+          p_qr_code_data: string
+          p_ticket_id: string
+          p_ticket_number: string
+        }
+        Returns: undefined
+      }
+      generate_qr_code_data: {
+        Args: { participant_uuid: string; ticket_uuid: string }
+        Returns: string
+      }
       generate_slug: {
         Args: { input_text: string }
+        Returns: string
+      }
+      generate_ticket_number: {
+        Args: Record<PropertyKey, never>
         Returns: string
       }
       generate_unique_edition_slug: {
@@ -381,6 +719,41 @@ export type Database = {
       generate_unique_slug: {
         Args: { base_slug: string; id_to_exclude?: string; table_name: string }
         Returns: string
+      }
+      get_participant_extras_total: {
+        Args: { participant_uuid: string }
+        Returns: number
+      }
+      get_ticket_extras_total: {
+        Args: { ticket_uuid: string }
+        Returns: number
+      }
+      verify_individual_ticket: {
+        Args:
+          | { p_event_id: string; p_qr_code_data: string }
+          | {
+              p_participant_id: string
+              p_qr_code_data: string
+              p_ticket_id: string
+            }
+        Returns: {
+          checked_in_at: string
+          event_location: string
+          event_name: string
+          medical_validated: boolean
+          participant_bib_number: string
+          participant_birthdate: string
+          participant_certificate_url: string
+          participant_full_name: string
+          participant_gender: string
+          participant_id: string
+          race_distance_km: number
+          race_name: string
+          race_start_time: string
+          status: string
+          ticket_id: string
+          ticket_number: string
+        }[]
       }
     }
     Enums: {

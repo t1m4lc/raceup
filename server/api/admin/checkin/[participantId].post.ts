@@ -117,7 +117,8 @@ export default defineEventHandler(async (event) => {
       success: true,
       participant: {
         id: updatedParticipant.id,
-        fullname: updatedParticipant.full_name, // Updated to use full_name instead of fullname
+        firstName: updatedParticipant.first_name,
+        lastName: updatedParticipant.last_name,
         checkinAt: updatedParticipant.checkin_at,
         certificateValidated: updatedParticipant.certificate_validated,
       },

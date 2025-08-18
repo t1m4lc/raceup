@@ -36,7 +36,7 @@
       <div class="space-y-6">
         <!-- Multiple participants: show tabs -->
         <div v-if="participants.length > 1">
-          <Tabs :model-value="activeTab" @update:model-value="$emit('update:active-tab', $event)" class="w-full">
+          <Tabs :model-value="activeTab" @update:model-value="(value) => $emit('update:active-tab', String(value))" class="w-full">
             <div class="overflow-x-auto">
               <TabsList class="w-max min-w-full mb-2 flex">
                 <TabsTrigger 
@@ -46,123 +46,60 @@
                   class="flex-shrink-0 min-w-[120px]"
                 >
                   Participant {{ index + 1 }}
+                  <Badge v-if="participants[index].isUser" variant="secondary" class="ml-2">You</Badge>
                 </TabsTrigger>
               </TabsList>
             </div>
             
             <div v-for="(participant, index) in participants" :key="index">
               <TabsContent :value="`participant-${index}`">
-                <!-- Name -->
-                <div class="mb-4">
-                  <Label :for="`name-${index}`">Full Name</Label>
-                  <Input
-                    :id="`name-${index}`"
-                    v-model="participant.full_name"
-                    placeholder="John Doe"
-                    required
-                  />
-                </div>
-                
-                <!-- Birthdate -->
-                <div class="mb-4">
-                  <Label :for="`birthdate-${index}`">Birthdate</Label>
-                  <Input 
-                    :id="`birthdate-${index}`"
-                    type="date"
-                    v-model="participant.birthdate"
-                    class="w-full"
-                  />
-                </div>
-                
-                <!-- Gender -->
-                <div class="mb-4">
-                  <Label :for="`gender-${index}`">Gender</Label>
-                  <Select v-model="participant.gender">
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select gender" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="male">Male</SelectItem>
-                      <SelectItem value="female">Female</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <!-- Note about medical certificate -->
-                <div class="mb-4">
-                  <Alert variant="default" class="bg-muted/50">
-                    <AlertDescription>
-                      You'll be able to upload your medical certificate after registration in the ticket details page.
-                    </AlertDescription>
-                  </Alert>
-                </div>
+                <ParticipantForm 
+                  :participant="participant"
+                  :index="index"
+                  :available-extras="availableExtras"
+                  :is-logged-in="isLoggedIn"
+                  :user-profile="userProfile"
+                  @update:participant="updateParticipant(index, $event)"
+                />
               </TabsContent>
             </div>
           </Tabs>
         </div>
         
-        <!-- Single participant: show form directly -->
-        <div v-else-if="participants.length === 1" class="space-y-4">
-          <div class="mb-4">
-            <Label for="name-0">Full Name</Label>
-            <Input
-              id="name-0"
-              v-model="participants[0].full_name"
-              placeholder="John Doe"
-              required
-            />
-          </div>
-          
-          <div class="mb-4">
-            <Label for="birthdate-0">Birthdate</Label>
-            <Input 
-              id="birthdate-0"
-              type="date"
-              v-model="participants[0].birthdate"
-              class="w-full"
-            />
-          </div>
-          
-          <div class="mb-4">
-            <Label for="gender-0">Gender</Label>
-            <Select v-model="participants[0].gender">
-              <SelectTrigger>
-                <SelectValue placeholder="Select gender" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="male">Male</SelectItem>
-                <SelectItem value="female">Female</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          
-          <div class="mb-4">
-            <Alert variant="default" class="bg-muted/50">
-              <AlertDescription>
-                You'll be able to upload your medical certificate after registration in the ticket details page.
-              </AlertDescription>
-            </Alert>
-          </div>
+        <!-- Single participant: direct form -->
+        <div v-else-if="participants.length === 1">
+          <ParticipantForm 
+            :participant="participants[0]"
+            :index="0"
+            :available-extras="availableExtras"
+            :is-logged-in="isLoggedIn"
+            :user-profile="userProfile"
+            @update:participant="updateParticipant(0, $event)"
+          />
         </div>
         
-        <div class="flex gap-3">
-          <Button variant="outline" class="flex-1" @click="$emit('prev-step')">Back</Button>
-          <Button class="flex-1" @click="$emit('next-step')">Continue</Button>
+        <div class="flex gap-2">
+          <Button variant="outline" @click="$emit('prev-step')" class="flex-1">
+            Back
+          </Button>
+          <Button @click="$emit('next-step')" :disabled="!isStepValid" class="flex-1">
+            Continue
+          </Button>
         </div>
       </div>
     </div>
     
-    <!-- Step 3: Optional Extras -->
+    <!-- Step 3: Extras Selection -->
     <div v-if="currentStep === 2">
       <div class="mb-4">
         <h3 class="text-lg font-semibold">Optional Extras</h3>
-        <p class="text-sm text-muted-foreground">Select any optional extras</p>
+        <p class="text-sm text-muted-foreground">Select any additional items for your participants</p>
       </div>
       
       <div class="space-y-6">
-        <!-- Multiple participants: show tabs -->
+        <!-- Multiple participants: show tabs for extras -->
         <div v-if="participants.length > 1">
-          <Tabs :model-value="activeTab" @update:model-value="$emit('update:active-tab', $event)" class="w-full">
+          <Tabs :model-value="activeTab" @update:model-value="(value) => $emit('update:active-tab', String(value))" class="w-full">
             <div class="overflow-x-auto">
               <TabsList class="w-max min-w-full mb-2 flex">
                 <TabsTrigger 
@@ -171,71 +108,42 @@
                   :value="`participant-${index}`"
                   class="flex-shrink-0 min-w-[120px]"
                 >
-                  Participant {{ index + 1 }}
+                  {{ getFullName(participants[index]) || `Participant ${index + 1}` }}
+                  <Badge v-if="participants[index].isUser" variant="secondary" class="ml-2">You</Badge>
                 </TabsTrigger>
               </TabsList>
             </div>
             
             <div v-for="(participant, index) in participants" :key="index">
               <TabsContent :value="`participant-${index}`">
-                <div class="space-y-4">
-                  <div>
-                    <Label>Available Extras</Label>
-                    <div class="mt-2 space-y-2">
-                      <div v-for="extra in availableExtras" :key="extra.id" class="flex items-center space-x-2">
-                        <Checkbox 
-                          :id="`${extra.id}-${index}`" 
-                          :checked="extraSelections[index]?.[extra.id]"
-                          @update:checked="(checked: boolean) => {
-                            extraSelections[index][extra.id] = checked;
-                            $emit('update:extras', index);
-                          }"
-                        />
-                        <label 
-                          :for="`${extra.id}-${index}`"
-                          class="flex items-center justify-between w-full text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                        >
-                          <span>{{ extra.name }}</span>
-                          <span>{{ formatPrice(extra.price_cents, race?.currency) }}</span>
-                        </label>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                <ExtrasSelection
+                  :participant="participant"
+                  :index="index"
+                  :available-extras="availableExtras"
+                  @update:participant="updateParticipant(index, $event)"
+                />
               </TabsContent>
             </div>
           </Tabs>
         </div>
         
-        <!-- Single participant: show form directly -->
-        <div v-else-if="participants.length === 1" class="space-y-4">
-          <div>
-            <Label>Available Extras</Label>
-            <div class="mt-2 space-y-2">
-              <div v-for="extra in availableExtras" :key="extra.id" class="flex items-center space-x-2">
-                <Checkbox 
-                  :id="`${extra.id}-0`" 
-                  :checked="extraSelections[0]?.[extra.id]"
-                  @update:checked="(checked: boolean) => {
-                    extraSelections[0][extra.id] = checked;
-                    $emit('update:extras', 0);
-                  }"
-                />
-                <label 
-                  :for="`${extra.id}-0`"
-                  class="flex items-center justify-between w-full text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                >
-                  <span>{{ extra.name }}</span>
-                  <span>{{ formatPrice(extra.price_cents, race?.currency) }}</span>
-                </label>
-              </div>
-            </div>
-          </div>
+        <!-- Single participant: direct extras form -->
+        <div v-else-if="participants.length === 1">
+          <ExtrasSelection
+            :participant="participants[0]"
+            :index="0"
+            :available-extras="availableExtras"
+            @update:participant="updateParticipant(0, $event)"
+          />
         </div>
         
-        <div class="flex gap-3">
-          <Button variant="outline" class="flex-1" @click="$emit('prev-step')">Back</Button>
-          <Button class="flex-1" @click="$emit('add-to-cart')">Add to Cart</Button>
+        <div class="flex gap-2">
+          <Button variant="outline" @click="$emit('prev-step')" class="flex-1">
+            Back
+          </Button>
+          <Button @click="$emit('add-to-cart')" class="flex-1">
+            Add to Cart
+          </Button>
         </div>
       </div>
     </div>
@@ -243,44 +151,100 @@
 </template>
 
 <script setup lang="ts">
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { computed } from 'vue'
 import { Label } from '@/components/ui/label'
+import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Checkbox } from '@/components/ui/checkbox'
-import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Separator } from '@/components/ui/separator'
+import ParticipantForm from '~/components/cart/ParticipantForm.vue'
+import ExtrasSelection from './ExtrasSelection.vue'
+import type { CartParticipant, CartExtra, TicketExtra } from '@/types/participant'
+import { getFullName } from '@/types/participant'
+
+export interface Race {
+  id: string
+  name: string
+  distance_km: number
+  price_cents: number
+  currency: string
+}
+
+export interface UserProfile {
+  id: string
+  full_name?: string
+  first_name?: string
+  last_name?: string
+  email?: string
+  date_of_birth?: string
+  gender?: string
+}
 
 const props = defineProps<{
   currentStep: number
-  participants: any[]
+  participants: CartParticipant[]
   participantCount: number
   activeTab: string
-  availableExtras: any[]
-  extraSelections: any
-  race: any
+  availableExtras: TicketExtra[]
+  extraSelections?: Record<number, Record<string, boolean>>
+  race?: Race
+  isLoggedIn?: boolean
+  userProfile?: UserProfile
 }>()
 
 const emit = defineEmits<{
   'update:participant-count': [value: number]
   'update:participants': []
-  'update:active-tab': [value: string | number]
-  'update:extras': [index: number]
+  'update:participant': [index: number, participant: CartParticipant]
+  'update:active-tab': [value: string]
+  'update:extras': [participantIndex: number]
   'next-step': []
   'prev-step': []
   'add-to-cart': []
 }>()
 
-const { $dayjs } = useNuxtApp()
+const isStepValid = computed(() => {
+  if (props.currentStep === 1) {
+    const isValid = props.participants.every(p => 
+      p.first_name.trim() !== '' && 
+      p.last_name.trim() !== '' &&
+      p.birthdate !== '' && 
+      p.gender !== ''
+    )
+    console.log('Step validation:', isValid, props.participants) // Debug log
+    return isValid
+  }
+  return true
+})
 
-const formatDate = (date: string) => {
-  return $dayjs(date).format('DD MMMM YYYY')
+const totalExtrasPrice = computed(() => {
+  return props.participants.reduce((total, participant) => {
+    const participantExtrasPrice = participant.extras.reduce((extrasTotal, extra) => {
+      return extrasTotal + (extra.price * extra.quantity)
+    }, 0)
+    return total + participantExtrasPrice
+  }, 0)
+})
+
+const updateParticipant = (index: number, updatedParticipant: CartParticipant) => {
+  // Emit the updated participant data directly to the parent
+  emit('update:participant', index, updatedParticipant)
 }
 
 const formatPrice = (priceCents: number, currency: string = 'EUR') => {
-  return new Intl.NumberFormat('fr-FR', {
+  return new Intl.NumberFormat('en-US', {
     style: 'currency',
-    currency: currency,
+    currency: currency || 'EUR',
   }).format(priceCents / 100)
+}
+
+const formatDate = (dateString: string) => {
+  return new Date(dateString).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  })
 }
 </script>

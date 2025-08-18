@@ -7,9 +7,28 @@
           Scan QR codes to check in participants
         </p>
       </div>
+      
+      <!-- Event Selection -->
+      <div class="min-w-[250px]">
+        <Select v-model="selectedEventId" @update:model-value="loadEventRaces">
+          <SelectTrigger>
+            <SelectValue placeholder="Select event" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem 
+              v-for="event in events" 
+              :key="event.id" 
+              :value="event.id"
+            >
+              {{ event.name }}
+            </SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
     </div>
     
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <!-- QR Scanner Section -->
       <Card>
         <CardHeader>
           <CardTitle>QR Code Scanner</CardTitle>
@@ -49,459 +68,540 @@
               </Button>
             </div>
           </div>
+          
+          <!-- Manual Entry -->
+          <div class="mt-4 pt-4 border-t">
+            <Label for="manual-ticket">Manual Ticket Number Entry</Label>
+            <div class="flex gap-2 mt-2">
+              <Input 
+                id="manual-ticket"
+                v-model="manualTicketNumber"
+                placeholder="Enter ticket number (e.g., TK123456)"
+                @keyup.enter="validateManualTicket"
+              />
+              <Button @click="validateManualTicket" :disabled="!manualTicketNumber.trim()">
+                Validate
+              </Button>
+            </div>
+          </div>
         </CardContent>
       </Card>
-      
-      <div class="space-y-6">
-        <Card v-if="selectedParticipant">
-          <CardHeader>
-            <CardTitle class="flex items-center justify-between">
-              <span>Participant Details</span>
-              <Badge :variant="selectedParticipant.checkedIn ? 'default' : 'outline'">
-                {{ selectedParticipant.checkedIn ? 'Already Checked In' : 'Not Checked In' }}
-              </Badge>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div class="space-y-4">
-              <div class="flex items-center space-x-4">
-                <Avatar class="h-12 w-12">
-                  <AvatarFallback>
-                    {{ getInitials(selectedParticipant.name) }}
-                  </AvatarFallback>
-                </Avatar>
+
+      <!-- Validation Panel -->
+      <Card>
+        <CardHeader>
+          <CardTitle>Participant Validation</CardTitle>
+          <CardDescription>
+            Validate participant details and check-in
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div v-if="!currentTicket" class="flex flex-col items-center justify-center gap-4 p-8 text-center">
+            <QrCodeIcon class="h-12 w-12 text-muted-foreground" />
+            <p class="text-muted-foreground">Scan a QR code or enter a ticket number to begin validation</p>
+          </div>
+          
+          <div v-else class="space-y-4">
+            <!-- Participant Info -->
+            <div class="p-4 bg-muted/50 rounded-lg">
+              <h3 class="font-semibold mb-2">{{ currentTicket.participant.full_name }}</h3>
+              <div class="grid grid-cols-2 gap-2 text-sm">
                 <div>
-                  <h3 class="font-medium">{{ selectedParticipant.name }}</h3>
-                  <p class="text-sm text-muted-foreground">
-                    {{ selectedParticipant.gender }} • {{ formatDate(selectedParticipant.birthdate, 'YYYY-MM-DD') }}
-                  </p>
+                  <span class="text-muted-foreground">Ticket:</span>
+                  <span class="font-mono ml-1">#{{ currentTicket.ticket_number }}</span>
+                </div>
+                <div>
+                  <span class="text-muted-foreground">Gender:</span>
+                  <span class="capitalize ml-1">{{ currentTicket.participant.gender }}</span>
+                </div>
+                <div>
+                  <span class="text-muted-foreground">Age:</span>
+                  <span class="ml-1">{{ calculateAge(currentTicket.participant.birthdate) }}</span>
+                </div>
+                <div>
+                  <span class="text-muted-foreground">Race:</span>
+                  <span class="ml-1">{{ currentTicket.ticket.race.name }}</span>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Status Checks -->
+            <div class="space-y-3">
+              <div class="flex items-center justify-between p-3 border rounded-lg">
+                <div class="flex items-center gap-2">
+                  <div :class="currentTicket.status === 'valid' ? 'text-green-600' : 'text-red-600'">
+                    <CheckCircle2Icon v-if="currentTicket.status === 'valid'" class="h-5 w-5" />
+                    <XCircleIcon v-else class="h-5 w-5" />
+                  </div>
+                  <span class="font-medium">Ticket Status</span>
+                </div>
+                <Badge :variant="currentTicket.status === 'valid' ? 'default' : 'destructive'">
+                  {{ currentTicket.status }}
+                </Badge>
+              </div>
+              
+              <div class="flex items-center justify-between p-3 border rounded-lg">
+                <div class="flex items-center gap-2">
+                  <div :class="currentTicket.participant.certificate_url ? 'text-green-600' : 'text-orange-500'">
+                    <CheckCircle2Icon v-if="currentTicket.participant.certificate_url" class="h-5 w-5" />
+                    <AlertCircleIcon v-else class="h-5 w-5" />
+                  </div>
+                  <span class="font-medium">Medical Certificate</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <Switch 
+                    :checked="currentTicket.medical_validated"
+                    @update:checked="updateMedicalValidation"
+                    :disabled="!currentTicket.participant.certificate_url"
+                  />
+                  <span class="text-sm">Validated</span>
                 </div>
               </div>
               
-              <Separator />
-              
-              <div>
-                <div class="grid grid-cols-2 gap-2 text-sm">
+              <!-- Participant Extras -->
+              <div v-if="currentTicket.extras && currentTicket.extras.length > 0" class="space-y-2">
+                <h4 class="font-medium">Selected Extras</h4>
+                <div 
+                  v-for="extra in currentTicket.extras" 
+                  :key="extra.id"
+                  class="flex items-center justify-between p-3 border rounded-lg"
+                >
                   <div>
-                    <div class="text-muted-foreground">Race:</div>
-                    <div class="font-medium">{{ selectedParticipant.race.name }}</div>
-                  </div>
-                  <div>
-                    <div class="text-muted-foreground">Distance:</div>
-                    <div class="font-medium">{{ selectedParticipant.race.distance }} km</div>
-                  </div>
-                  <div>
-                    <div class="text-muted-foreground">Event:</div>
-                    <div class="font-medium">{{ selectedParticipant.race.event.name }}</div>
-                  </div>
-                  <div>
-                    <div class="text-muted-foreground">Date:</div>
-                    <div class="font-medium">{{ formatDate(selectedParticipant.race.date) }}</div>
-                  </div>
-                </div>
-              </div>
-              
-              <Separator />
-              
-              <div class="space-y-4">
-                <div class="flex items-center justify-between">
-                  <div class="flex items-center gap-2">
-                    <FileIcon class="h-4 w-4" />
-                    <Label for="certificate-validated">Medical Certificate Validated</Label>
+                    <span class="font-medium">{{ extra.name }}</span>
+                    <span class="text-sm text-muted-foreground ml-2">({{ extra.quantity }}x)</span>
                   </div>
                   <Switch 
-                    id="certificate-validated"
-                    :checked="selectedParticipant.certificateValidated"
-                    @update:checked="updateCertificateStatus(selectedParticipant.id, $event)"
-                    :disabled="isUpdating"
+                    :checked="extra.validated"
+                    @update:checked="updateExtraValidation(extra.id, $event)"
                   />
                 </div>
-                
-                <Button 
-                  class="w-full" 
-                  :disabled="isUpdating || selectedParticipant.checkedIn || !selectedParticipant.certificateValidated"
-                  @click="checkInParticipant"
-                >
-                  <span v-if="isUpdating">
-                    <div class="animate-spin h-4 w-4 border-t-2 border-b-2 border-primary-foreground rounded-full mr-2"></div>
-                    Processing...
-                  </span>
-                  <span v-else-if="selectedParticipant.checkedIn">
-                    Already Checked In
-                  </span>
-                  <span v-else-if="!selectedParticipant.certificateValidated">
-                    Validate Certificate First
-                  </span>
-                  <span v-else>
-                    <CheckIcon class="h-4 w-4 mr-2" />
-                    Confirm Check-in
-                  </span>
-                </Button>
               </div>
             </div>
-          </CardContent>
-        </Card>
-        
-        <Card v-if="recentCheckIns.length > 0">
-          <CardHeader>
-            <CardTitle>Recent Check-ins</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div class="space-y-4">
-              <div v-for="checkin in recentCheckIns" :key="checkin.id" class="flex items-center justify-between">
-                <div class="flex items-center space-x-3">
-                  <Avatar class="h-8 w-8">
-                    <AvatarFallback>
-                      {{ getInitials(checkin.name) }}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <div class="font-medium text-sm">{{ checkin.name }}</div>
-                    <div class="text-xs text-muted-foreground">{{ checkin.race.name }}</div>
-                  </div>
-                </div>
-                <div class="text-xs text-muted-foreground">
-                  {{ formatTimeAgo(checkin.checkedIn) }}
-                </div>
-              </div>
+            
+            <!-- Action Buttons -->
+            <div class="flex gap-2 pt-4">
+              <Button 
+                v-if="!currentTicket.checked_in_at"
+                @click="checkInParticipant"
+                :disabled="currentTicket.status !== 'valid'"
+                class="flex-1"
+              >
+                <CheckIcon class="h-4 w-4 mr-2" />
+                Check In
+              </Button>
+              
+              <Button 
+                v-else
+                variant="outline"
+                disabled
+                class="flex-1"
+              >
+                <CheckCircle2Icon class="h-4 w-4 mr-2" />
+                Already Checked In
+              </Button>
+              
+              <Button variant="outline" @click="clearCurrentTicket">
+                Clear
+              </Button>
             </div>
-          </CardContent>
-        </Card>
-      </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
     
-    <!-- Alert Dialog for Check-in Success -->
-    <AlertDialog :open="!!checkInSuccess" @update:open="checkInSuccess = null">
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Check-in Confirmed</AlertDialogTitle>
-          <AlertDialogDescription>
-            {{ checkInSuccess?.name }} has been successfully checked in.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <Button @click="checkInSuccess = null">OK</Button>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
-    
-    <!-- Alert Dialog for QR Code Errors -->
-    <AlertDialog :open="!!scanError" @update:open="scanError = null">
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Scan Error</AlertDialogTitle>
-          <AlertDialogDescription>
-            {{ scanError }}
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <Button @click="scanError = null">OK</Button>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+    <!-- Participants List -->
+    <Card class="mt-6">
+      <CardHeader>
+        <div class="flex items-center justify-between">
+          <div>
+            <CardTitle>Participants</CardTitle>
+            <CardDescription>
+              Manage event participants and check-in status
+            </CardDescription>
+          </div>
+          
+          <!-- Search and Filters -->
+          <div class="flex gap-2">
+            <Input 
+              v-model="searchQuery"
+              placeholder="Search participants..."
+              class="w-64"
+            />
+            <Select v-model="statusFilter">
+              <SelectTrigger class="w-40">
+                <SelectValue placeholder="All Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="checked-in">Checked In</SelectItem>
+                <SelectItem value="pending">Pending</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <ParticipantsList 
+          :participants="filteredParticipants"
+          :loading="participantsLoading"
+          @select-participant="selectParticipant"
+        />
+      </CardContent>
+    </Card>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import jsQR from 'jsqr'
 import { 
   CameraIcon, 
   XIcon,
-  FileIcon,
-  CheckIcon
+  QrCodeIcon,
+  CheckIcon,
+  CheckCircle2Icon,
+  XCircleIcon,
+  AlertCircleIcon
 } from 'lucide-vue-next'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { Separator } from '@/components/ui/separator'
+import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
-import { 
-  AlertDialog,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle
-} from '@/components/ui/alert-dialog'
-import jsQR from 'jsqr'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import ParticipantsList from '~/components/admin/ParticipantsList.vue'
 
-const { $dayjs } = useNuxtApp()
+definePageMeta({
+  layout: 'admin',
+  middleware: 'god-mode'
+})
+
 const client = useSupabaseClient()
+const user = useSupabaseUser()
 
-// State variables
-const videoRef = ref<HTMLVideoElement | null>(null)
-const videoStream = ref<MediaStream | null>(null)
-const canvasRef = ref<HTMLCanvasElement | null>(document.createElement('canvas'))
+// State
+const selectedEventId = ref('')
+const events = ref<any[]>([])
+const races = ref<any[]>([])
+const participants = ref<any[]>([])
+const participantsLoading = ref(false)
+const searchQuery = ref('')
+const statusFilter = ref('all')
+
+// Camera & QR scanning
+const videoRef = ref<HTMLVideoElement>()
 const isCameraStarted = ref(false)
-const isScanning = ref(false)
-const scanInterval = ref<number | null>(null)
-const selectedParticipant = ref<any>(null)
-const isUpdating = ref(false)
-const checkInSuccess = ref<any>(null)
-const scanError = ref<string | null>(null)
-const recentCheckIns = ref<any[]>([])
+const videoStream = ref<MediaStream>()
+const scanInterval = ref<NodeJS.Timeout>()
+const manualTicketNumber = ref('')
 
-// Format date using dayjs
-const formatDate = (date: string, format = 'MMM D, YYYY') => {
-  return $dayjs(date).format(format)
-}
+// Current validation
+const currentTicket = ref<any>(null)
 
-// Format time ago
-const formatTimeAgo = (date: string) => {
-  return $dayjs(date).fromNow()
-}
+// Computed
+const filteredParticipants = computed(() => {
+  let filtered = participants.value
 
-// Get initials from name
-const getInitials = (name: string) => {
-  return name
-    .split(' ')
-    .map(part => part[0])
-    .join('')
-    .toUpperCase()
-    .substring(0, 2)
-}
+  if (searchQuery.value) {
+    const query = searchQuery.value.toLowerCase()
+    filtered = filtered.filter(p => 
+      p.participant.full_name.toLowerCase().includes(query) ||
+      p.ticket_number.toLowerCase().includes(query)
+    )
+  }
 
-// Start camera
-const startCamera = async () => {
-  try {
-    const constraints = {
-      video: { 
-        facingMode: 'environment',
-        width: { ideal: 1280 },
-        height: { ideal: 720 }
-      },
-      audio: false
+  if (statusFilter.value !== 'all') {
+    if (statusFilter.value === 'checked-in') {
+      filtered = filtered.filter(p => p.checked_in_at)
+    } else if (statusFilter.value === 'pending') {
+      filtered = filtered.filter(p => !p.checked_in_at)
     }
-    
-    const stream = await navigator.mediaDevices.getUserMedia(constraints)
-    videoRef.value!.srcObject = stream
-    videoStream.value = stream
-    isCameraStarted.value = true
-    
-    // Start QR code scanning
-    startScanning()
-  } catch (err) {
-    console.error('Error starting camera:', err)
-    scanError.value = 'Could not access the camera. Please check your device permissions.'
+  }
+
+  return filtered
+})
+
+// Methods
+const loadEvents = async () => {
+  try {
+    const { data, error } = await client
+      .from('events')
+      .select(`
+        id,
+        name,
+        start_date,
+        organization:organizations!inner(
+          id,
+          founder_id
+        )
+      `)
+      .eq('organizations.founder_id', user.value?.id || '')
+      .order('start_date', { ascending: false })
+
+    if (error) throw error
+    events.value = data || []
+  } catch (error) {
+    console.error('Error loading events:', error)
   }
 }
 
-// Stop camera
+const loadEventRaces = async () => {
+  if (!selectedEventId.value) return
+  
+  try {
+    const { data, error } = await client
+      .from('races')
+      .select('*')
+      .eq('event_id', selectedEventId.value)
+      .order('start_time')
+
+    if (error) throw error
+    races.value = data || []
+    
+    await loadParticipants()
+  } catch (error) {
+    console.error('Error loading races:', error)
+  }
+}
+
+const loadParticipants = async () => {
+  if (!selectedEventId.value) return
+  
+  participantsLoading.value = true
+  try {
+    const { data, error } = await client
+      .from('individual_tickets')
+      .select(`
+        *,
+        participant:participants(*),
+        ticket:tickets(
+          id,
+          race:races(
+            id,
+            name,
+            distance_km,
+            event_id
+          )
+        )
+      `)
+      .eq('ticket.race.event_id', selectedEventId.value)
+      .order('created_at', { ascending: false })
+
+    if (error) throw error
+    participants.value = data || []
+  } catch (error) {
+    console.error('Error loading participants:', error)
+  } finally {
+    participantsLoading.value = false
+  }
+}
+
+const startCamera = async () => {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'environment' }
+    })
+    
+    if (videoRef.value) {
+      videoRef.value.srcObject = stream
+      videoStream.value = stream
+      isCameraStarted.value = true
+      startQRScanning()
+    }
+  } catch (error) {
+    console.error('Camera access denied:', error)
+  }
+}
+
 const stopCamera = () => {
   if (videoStream.value) {
     videoStream.value.getTracks().forEach(track => track.stop())
-    videoStream.value = null
+    videoStream.value = undefined
   }
   
   if (scanInterval.value) {
     clearInterval(scanInterval.value)
-    scanInterval.value = null
+    scanInterval.value = undefined
   }
   
   isCameraStarted.value = false
-  isScanning.value = false
 }
 
-// Start QR code scanning
-const startScanning = () => {
-  if (isScanning.value) return
-  
-  isScanning.value = true
-  
-  // Set up canvas for QR code processing
-  const canvas = canvasRef.value!
-  const context = canvas.getContext('2d')
-  
-  scanInterval.value = window.setInterval(() => {
-    if (videoRef.value && videoRef.value.readyState === videoRef.value.HAVE_ENOUGH_DATA) {
-      // Set canvas dimensions
-      canvas.height = videoRef.value.videoHeight
-      canvas.width = videoRef.value.videoWidth
-      
-      // Draw video frame to canvas
-      context!.drawImage(videoRef.value, 0, 0, canvas.width, canvas.height)
-      
-      // Get image data for QR code detection
-      const imageData = context!.getImageData(0, 0, canvas.width, canvas.height)
-      
-      // Process with jsQR
-      const code = jsQR(imageData.data, imageData.width, imageData.height, {
-        inversionAttempts: 'dontInvert'
-      })
-      
-      if (code) {
-        // We found a QR code
-        console.log('QR code detected:', code.data)
-        
-        // Process the QR code data
-        processQRCode(code.data)
-        
-        // Pause scanning briefly to avoid multiple scans
-        clearInterval(scanInterval.value!)
-        scanInterval.value = null
-        
-        // Resume scanning after a delay
-        setTimeout(() => {
-          if (isCameraStarted.value) {
-            startScanning()
-          }
-        }, 3000)
-      }
-    }
+const startQRScanning = () => {
+  scanInterval.value = setInterval(() => {
+    scanQRCode()
   }, 100)
 }
 
-// Process QR code data
-const processQRCode = async (data: string) => {
+const scanQRCode = () => {
+  if (!videoRef.value) return
+  
+  const canvas = document.createElement('canvas')
+  const context = canvas.getContext('2d')
+  if (!context) return
+  
+  canvas.width = videoRef.value.videoWidth
+  canvas.height = videoRef.value.videoHeight
+  
+  context.drawImage(videoRef.value, 0, 0, canvas.width, canvas.height)
+  
+  const imageData = context.getImageData(0, 0, canvas.width, canvas.height)
+  const code = jsQR(imageData.data, imageData.width, imageData.height)
+  
+  if (code) {
+    validateQRCode(code.data)
+  }
+}
+
+const validateQRCode = async (qrData: string) => {
   try {
-    // Parse QR code data
-    const qrData = JSON.parse(data)
+    // Extract ticket validation data from QR code
+    const url = new URL(qrData)
+    const ticketId = url.searchParams.get('t')
+    const participantId = url.searchParams.get('p')
     
-    if (!qrData.ticketId) {
+    if (!ticketId || !participantId) {
       throw new Error('Invalid QR code format')
     }
     
-    // Fetch participant data
-    await fetchParticipantFromTicket(qrData.ticketId)
-  } catch (err: any) {
-    console.error('Error processing QR code:', err)
-    scanError.value = 'Invalid QR code format. Please try again.'
+    await validateTicket(ticketId, participantId)
+  } catch (error) {
+    console.error('QR validation error:', error)
   }
 }
 
-// Fetch participant from ticket ID
-const fetchParticipantFromTicket = async (ticketId: string) => {
-  try {
-    // Get ticket details from API
-    const ticketResponse = await $fetch(`/api/tickets/${ticketId}`, {
-      headers: {
-        'Content-Type': 'application/json',
-      }
-    })
-    
-    if (!ticketResponse || ticketResponse.participants.length === 0) {
-      throw new Error('No participants found for this ticket')
-    }
-    
-    // For now, just use the first participant
-    // In a more complex system, you might want to show a list and let the user select
-    const participant = ticketResponse.participants[0]
-    
-    // Format the participant data for display
-    selectedParticipant.value = {
-      id: participant.id,
-      name: participant.name,
-      gender: participant.gender,
-      birthdate: participant.birthdate,
-      certificateValidated: participant.certificateValidated,
-      certificateUrl: participant.certificateUrl,
-      checkedIn: participant.checkedIn,
-      race: {
-        name: ticketResponse.race.name,
-        date: ticketResponse.race.date,
-        distance: ticketResponse.race.distance,
-        event: {
-          name: ticketResponse.race.eventName,
-          id: ticketResponse.race.eventId
-        }
-      }
-    }
-  } catch (err: any) {
-    console.error('Error fetching participant data:', err)
-    scanError.value = 'Error fetching participant data. Please try again.'
-  }
-}
-
-// Update certificate validation status
-const updateCertificateStatus = async (participantId: string, status: boolean) => {
-  isUpdating.value = true
+const validateManualTicket = async () => {
+  if (!manualTicketNumber.value.trim()) return
   
   try {
-    // Update in Supabase
-    const { error: updateError } = await client
-      .from('participants')
-      .update({
-        certificate_validated: status,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', participantId)
+    const { data, error } = await client
+      .from('individual_tickets')
+      .select(`
+        *,
+        participant:participants(*),
+        ticket:tickets(
+          id,
+          race:races(
+            id,
+            name,
+            distance_km
+          )
+        )
+      `)
+      .eq('ticket_number', manualTicketNumber.value.trim())
+      .single()
+
+    if (error) throw error
     
-    if (updateError) throw updateError
-    
-    // Update local state
-    if (selectedParticipant.value && selectedParticipant.value.id === participantId) {
-      selectedParticipant.value.certificateValidated = status
-    }
-  } catch (err: any) {
-    console.error('Error updating certificate status:', err)
-    scanError.value = 'Failed to update certificate status'
-  } finally {
-    isUpdating.value = false
+    currentTicket.value = data
+    manualTicketNumber.value = ''
+  } catch (error) {
+    console.error('Manual validation error:', error)
   }
 }
 
-// Check in participant
+const validateTicket = async (ticketId: string, participantId: string) => {
+  try {
+    const { data, error } = await client
+      .from('individual_tickets')
+      .select(`
+        *,
+        participant:participants(*),
+        ticket:tickets(
+          id,
+          race:races(
+            id,
+            name,
+            distance_km
+          )
+        )
+      `)
+      .eq('ticket_id', ticketId)
+      .eq('participant_id', participantId)
+      .single()
+
+    if (error) throw error
+    
+    currentTicket.value = data
+  } catch (error) {
+    console.error('Ticket validation error:', error)
+  }
+}
+
 const checkInParticipant = async () => {
-  if (!selectedParticipant.value || selectedParticipant.value.checkedIn || !selectedParticipant.value.certificateValidated) {
-    return
-  }
-  
-  isUpdating.value = true
+  if (!currentTicket.value) return
   
   try {
-    // Record check-in
-    const { error: checkInError } = await client
-      .from('participants')
+    const { error } = await (client as any)
+      .from('individual_tickets')
       .update({
-        checkin_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
+        status: 'used',
+        checked_in_at: new Date().toISOString(),
+        checked_in_by: user.value?.id || ''
       })
-      .eq('id', selectedParticipant.value.id)
+      .eq('id', currentTicket.value.id)
+
+    if (error) throw error
     
-    if (checkInError) throw checkInError
+    currentTicket.value.status = 'used'
+    currentTicket.value.checked_in_at = new Date().toISOString()
     
-    // Update local state
-    const now = new Date().toISOString()
-    selectedParticipant.value.checkedIn = formatDate(now)
-    
-    // Add to recent check-ins
-    const checkInRecord = {
-      id: selectedParticipant.value.id,
-      name: selectedParticipant.value.name,
-      race: {
-        name: selectedParticipant.value.race.name
-      },
-      checkedIn: now
-    }
-    
-    // Add to beginning of array and limit to 10 items
-    recentCheckIns.value.unshift(checkInRecord)
-    recentCheckIns.value = recentCheckIns.value.slice(0, 10)
-    
-    // Show success message
-    checkInSuccess.value = { name: selectedParticipant.value.name }
-    
-    // Clear selected participant after a brief delay
-    setTimeout(() => {
-      selectedParticipant.value = null
-    }, 2000)
-  } catch (err: any) {
-    console.error('Error checking in participant:', err)
-    scanError.value = 'Failed to check in participant'
-  } finally {
-    isUpdating.value = false
+    await loadParticipants()
+  } catch (error) {
+    console.error('Check-in error:', error)
   }
 }
 
-// Clean up
-onBeforeUnmount(() => {
-  stopCamera()
+const updateMedicalValidation = async (validated: boolean) => {
+  if (!currentTicket.value) return
+  
+  try {
+    const { error } = await (client as any)
+      .from('individual_tickets')
+      .update({ medical_validated: validated })
+      .eq('id', currentTicket.value.id)
+
+    if (error) throw error
+    
+    currentTicket.value.medical_validated = validated
+  } catch (error) {
+    console.error('Medical validation error:', error)
+  }
+}
+
+const updateExtraValidation = async (extraId: string, validated: boolean) => {
+  // TODO: Update extra validation in participant_extras table
+  console.log('Update extra validation:', extraId, validated)
+}
+
+const clearCurrentTicket = () => {
+  currentTicket.value = null
+}
+
+const selectParticipant = (participant: any) => {
+  currentTicket.value = participant
+}
+
+const calculateAge = (birthdate: string) => {
+  const today = new Date()
+  const birth = new Date(birthdate)
+  let age = today.getFullYear() - birth.getFullYear()
+  const monthDiff = today.getMonth() - birth.getMonth()
+  
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+    age--
+  }
+  
+  return age
+}
+
+// Lifecycle
+onMounted(() => {
+  loadEvents()
 })
 
-// This is needed for layout
-definePageMeta({
-  layout: 'admin'
+onBeforeUnmount(() => {
+  stopCamera()
 })
 </script>

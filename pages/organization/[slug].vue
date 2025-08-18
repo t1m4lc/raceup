@@ -195,30 +195,19 @@ async function fetchOrganizationData() {
     if (memberError) throw memberError;
     members.value = memberData;
     
-    // Fetch events (latest editions)
+    // Fetch events (using new events table)
     const { data: eventData, error: eventError } = await client
-      .from('event_editions')
+      .from('events')
       .select(`
-        id, slug, name, description, start_date, end_date, image_url,
-        event_root: event_roots (id)
+        id, slug, name, description, start_date, end_date, image_url
       `)
-      .eq('event_root.organization_id', organization.value.id)
+      .eq('organization_id', organization.value.id)
       .order('start_date', { ascending: false })
       .limit(6);
       
     if (eventError) throw eventError;
     
-    // Group by event_root and mark latest as true
-    const eventsByRoot = {};
-    eventData.forEach(event => {
-      const rootId = event.event_root.id;
-      if (!eventsByRoot[rootId] || new Date(event.start_date) > new Date(eventsByRoot[rootId].start_date)) {
-        eventsByRoot[rootId] = event;
-        event.is_latest = true;
-      }
-    });
-    
-    events.value = eventData;
+    events.value = eventData || [];
   } catch (err) {
     console.error('Error fetching organization data:', err);
     error.value = err;
