@@ -81,7 +81,6 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
 import { CalendarIcon, PlusIcon, PencilIcon, UsersIcon, MoreHorizontalIcon } from 'lucide-vue-next'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
@@ -96,31 +95,20 @@ interface Event {
   [key: string]: any
 }
 
-const { $dayjs } = useNuxtApp()
-const client = useSupabaseClient()
+// Use shared composables
+const { formatDate } = useDateFormatting()
 const user = useSupabaseUser()
 
-const events = ref<Event[]>([])
-const loading = ref(true)
-const error = ref('')
-
-// Format date using dayjs
-const formatDate = (date: string, format = 'MMM D, YYYY') => {
-  return $dayjs(date).format(format)
-}
-
-// Fetch events
-const fetchEvents = async () => {
-  if (!user.value) return
-  
-  loading.value = true
-  error.value = ''
-  
-  try {
-    // We can now use the Supabase user ID directly as the profile ID
+// Fetch events using useLazyAsyncData
+const { data: events, pending: loading, error: fetchError } = await useLazyAsyncData(
+  'admin-events',
+  async () => {
+    if (!user.value) return []
+    
+    const client = useSupabaseClient()
     const profileId = user.value.id
     
-    // Then fetch events organized by this user
+    // Fetch events organized by this user
     const { data: eventsData, error: eventsError } = await client
       .from('events')
       .select('*')
@@ -130,7 +118,7 @@ const fetchEvents = async () => {
     if (eventsError) throw eventsError
     
     // For each event, count the participants
-    const eventsWithCounts = await Promise.all((eventsData || []).map(async (event: Event) => {
+    const eventsWithCounts = await Promise.all((eventsData || []).map(async (event: any) => {
       // Count participants in all races for this event
       const { count, error: countError } = await client
         .from('participants')
@@ -145,17 +133,21 @@ const fetchEvents = async () => {
       return { ...event, participant_count: count }
     }))
     
-    events.value = eventsWithCounts
-  } catch (err: any) {
-    console.error('Error fetching events:', err)
-    error.value = 'Failed to load events. Please try again.'
-  } finally {
-    loading.value = false
+    return eventsWithCounts
+  },
+  {
+    default: () => [],
+    server: false, // Client-side only due to Supabase client
+    watch: [user]
   }
-}
+)
 
-onMounted(() => {
-  fetchEvents()
+// Convert error for display
+const error = computed(() => {
+  if (fetchError.value) {
+    return 'Failed to load events. Please try again.'
+  }
+  return ''
 })
 
 // This is needed for layout

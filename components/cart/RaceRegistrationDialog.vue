@@ -165,12 +165,8 @@ const availableExtras = ref([
 ])
 const extraSelections = ref<Record<number, Record<string, boolean>>>({})
 
-const formatPrice = (priceCents: number, currency: string = 'EUR') => {
-  return new Intl.NumberFormat('fr-FR', {
-    style: 'currency',
-    currency: currency,
-  }).format(priceCents / 100)
-}
+// Use shared pricing utilities
+const { formatPrice } = usePricing()
 
 const nextStep = () => {
   if (currentStep.value < steps.length - 1) {

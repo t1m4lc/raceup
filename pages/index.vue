@@ -65,51 +65,21 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
 import { CalendarIcon, MapPinIcon } from 'lucide-vue-next'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 
-const dayjs = useDayjs()
-const client = useSupabaseClient()
+// Use our new composables
+const { formatDate, formatDateRange } = useDateFormatting()
+const { handleError } = useApiError()
 
-const events = ref([])
-const loading = ref(true)
-const error = ref('')
-
-// Format date
-const formatDate = (date) => {
-  return dayjs(date).format('MMM D, YYYY')
-}
-
-// Format date range
-const formatDateRange = (startDate, endDate) => {
-  const start = dayjs(startDate)
-  const end = dayjs(endDate)
-  
-  if (start.isSame(end, 'day')) {
-    return `${start.format('MMM D, YYYY')}`
-  }
-  
-  if (start.isSame(end, 'month')) {
-    return `${start.format('MMM D')} - ${end.format('D, YYYY')}`
-  }
-  
-  if (start.isSame(end, 'year')) {
-    return `${start.format('MMM D')} - ${end.format('MMM D, YYYY')}`
-  }
-  
-  return `${start.format('MMM D, YYYY')} - ${end.format('MMM D, YYYY')}`
-}
-
-// Fetch events
-const fetchEvents = async () => {
-  loading.value = true
-  error.value = ''
-  
-  try {
-    // Fetch upcoming events from the events table
-    const { data, error: err } = await client
+// Fetch upcoming events using useLazyAsyncData
+const { data: events, pending: loading, error: fetchError } = await useLazyAsyncData(
+  'upcoming-events',
+  async () => {
+    const client = useSupabaseClient()
+    
+    const { data, error } = await client
       .from('events')
       .select(`
         *,
@@ -118,18 +88,20 @@ const fetchEvents = async () => {
       .order('start_date', { ascending: true })
       .gte('end_date', new Date().toISOString()) // Only upcoming events
     
-    if (err) throw err
-    
-    events.value = data || []
-  } catch (err) {
-    console.error('Error fetching events:', err)
-    error.value = 'Failed to load events. Please check your database setup.'
-  } finally {
-    loading.value = false
+    if (error) throw error
+    return data || []
+  },
+  {
+    default: () => [],
+    server: false // Client-side only due to Supabase client
   }
-}
+)
 
-onMounted(() => {
-  fetchEvents()
+// Handle errors reactively
+const error = computed(() => {
+  if (fetchError.value) {
+    return handleError(fetchError.value, 'Loading events')
+  }
+  return null
 })
 </script>

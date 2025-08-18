@@ -13,6 +13,9 @@ export const useCart = () => {
   const items = useState<CartItem[]>("cart-items", () => []);
   const isCartOpen = useState<boolean>("cart-open", () => false);
 
+  // Use shared pricing utilities
+  const { formatPrice } = usePricing();
+
   const totalItems = computed(() => {
     return items.value.reduce(
       (total: number, item: CartItem) => total + item.participants.length,
@@ -29,11 +32,7 @@ export const useCart = () => {
   const formattedTotalPrice = computed(() => {
     // Assuming all items use the same currency (default to EUR)
     const currency = items.value.length > 0 ? items.value[0].currency : "EUR";
-
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: currency,
-    }).format(totalPrice.value / 100);
+    return formatPrice(totalPrice.value, currency);
   });
 
   function addItem(item: CartItem) {

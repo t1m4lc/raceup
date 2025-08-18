@@ -131,11 +131,6 @@ const updateExtraQuantity = (extraId: string, quantity: number) => {
   emit('update:participant', updatedParticipant)
 }
 
-const formatPrice = (cents: number, currency: string = 'EUR'): string => {
-  const amount = typeof cents === 'number' ? cents / 100 : cents
-  return new Intl.NumberFormat('fr-FR', {
-    style: 'currency',
-    currency: currency
-  }).format(amount)
-}
+// Use shared pricing utilities
+const { formatPrice } = usePricing()
 </script>

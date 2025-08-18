@@ -185,25 +185,38 @@ import QRCode from 'qrcode'
 
 const route = useRoute()
 const ticketId = computed(() => route.params.ticketId as string)
-const { $dayjs } = useNuxtApp()
 
-const ticket = ref<any>(null)
-const loading = ref(true)
-const error = ref('')
+// Use shared composables
+const { formatDate } = useDateFormatting()
+const { formatPrice } = usePricing()
+
 const qrCodeContainer = ref<HTMLElement | null>(null)
 
-// Format date using dayjs
-const formatDate = (date: string, format = 'MMM D, YYYY') => {
-  return $dayjs(date).format(format)
-}
+// Fetch ticket data using useLazyAsyncData
+const { data: ticket, pending: loading, error: fetchError } = await useLazyAsyncData(
+  `ticket-${ticketId.value}`,
+  async () => {
+    const response = await $fetch(`/api/tickets/${ticketId.value}`, {
+      headers: {
+        'Content-Type': 'application/json',
+      }
+    })
+    return response
+  },
+  {
+    default: () => null,
+    server: false,
+    watch: [ticketId]
+  }
+)
 
-// Format price to currency
-const formatPrice = (price, currency) => {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: currency || 'EUR',
-  }).format(price)
-}
+// Convert error to string for display
+const error = computed(() => {
+  if (fetchError.value) {
+    return 'Failed to load ticket details'
+  }
+  return ''
+})
 
 // Get badge variant based on status
 const getStatusVariant = (status) => {
@@ -271,41 +284,18 @@ const generateQRCode = () => {
   )
 }
 
-// Fetch ticket
-const fetchTicket = async () => {
-  loading.value = true
-  error.value = ''
-  
-  try {
-    const response = await $fetch(`/api/tickets/${ticketId.value}`, {
-      headers: {
-        'Content-Type': 'application/json',
-      }
-    })
-    
-    ticket.value = response
-    
-    // Wait for DOM to update, then generate QR code
+// Watch for ticket data and generate QR code when ready
+watch(ticket, (newTicket: any) => {
+  if (newTicket?.status === 'paid') {
     nextTick(() => {
-      if (ticket.value.status === 'paid') {
-        generateQRCode()
-      }
+      generateQRCode()
     })
-  } catch (err: any) {
-    console.error('Error fetching ticket:', err)
-    error.value = 'Failed to load ticket details'
-  } finally {
-    loading.value = false
   }
-}
-
-onMounted(() => {
-  fetchTicket()
-})
+}, { immediate: true })
 
 // Regenerate QR code if the component is rerendered
 watch(qrCodeContainer, () => {
-  if (ticket.value?.status === 'paid' && qrCodeContainer.value) {
+  if ((ticket.value as any)?.status === 'paid' && qrCodeContainer.value) {
     generateQRCode()
   }
 })

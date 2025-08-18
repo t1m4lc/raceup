@@ -2,19 +2,7 @@
 import { defineStore } from "pinia";
 import { v4 as uuidv4 } from "uuid";
 import { useCommission as useCommissionHook } from "~/composables/useCommission";
-import type { CartExtra } from "~/types/participant";
-
-export type CartParticipant = {
-  first_name: string;
-  last_name: string;
-  birthdate: string;
-  gender: string;
-  certificate_url?: string;
-  extras: CartExtra[];
-  emergencyContactName?: string;
-  emergencyContactPhone?: string;
-  medicalNotes?: string;
-};
+import type { CartExtra, CartParticipant } from "~/types/participant";
 
 export type CartItem = {
   id: string;

@@ -129,8 +129,6 @@
 
 <script setup lang="ts">
 import { AlertCircleIcon, CalendarIcon, ImageIcon } from 'lucide-vue-next';
-import { useRoute, useRouter } from 'vue-router';
-import { ref, computed } from 'vue';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import {
@@ -146,30 +144,19 @@ definePageMeta({
 
 const route = useRoute();
 const router = useRouter();
-const { $dayjs } = useNuxtApp();
-const client = useSupabaseClient();
+
+// Use our shared composables
+const { formatDate } = useDateFormatting();
 
 // Get organization slug from route params
 const slug = computed(() => route.params.slug as string);
 
-// Fetch state
-const isLoading = ref(true);
-const error = ref(null);
-const organization = ref(null);
-const members = ref([]);
-const events = ref([]);
-
-// Format date helper
-const formatDate = (dateString) => {
-  return $dayjs(dateString).format('MMM D, YYYY');
-};
-
-// Fetch organization data
-async function fetchOrganizationData() {
-  isLoading.value = true;
-  error.value = null;
-  
-  try {
+// Fetch organization data with members and events using useLazyAsyncData
+const { data: organizationData, pending: isLoading, error } = await useLazyAsyncData(
+  `organization-${slug.value}`,
+  async () => {
+    const client = useSupabaseClient();
+    
     // Fetch organization details
     const { data: orgData, error: orgError } = await client
       .from('organizations')
@@ -179,7 +166,6 @@ async function fetchOrganizationData() {
       
     if (orgError) throw orgError;
     if (!orgData) throw new Error('Organization not found');
-    organization.value = orgData;
     
     // Fetch organization members with profiles
     const { data: memberData, error: memberError } = await client
@@ -190,39 +176,37 @@ async function fetchOrganizationData() {
           id, full_name, avatar_url
         )
       `)
-      .eq('organization_id', organization.value.id);
+      .eq('organization_id', orgData.id);
       
     if (memberError) throw memberError;
-    members.value = memberData;
     
-    // Fetch events (using new events table)
+    // Fetch events
     const { data: eventData, error: eventError } = await client
       .from('events')
       .select(`
         id, slug, name, description, start_date, end_date, image_url
       `)
-      .eq('organization_id', organization.value.id)
+      .eq('organization_id', orgData.id)
       .order('start_date', { ascending: false })
       .limit(6);
       
     if (eventError) throw eventError;
     
-    events.value = eventData || [];
-  } catch (err) {
-    console.error('Error fetching organization data:', err);
-    error.value = err;
-  } finally {
-    isLoading.value = false;
+    return {
+      organization: orgData,
+      members: memberData || [],
+      events: eventData || []
+    };
+  },
+  {
+    default: () => ({ organization: null, members: [], events: [] }),
+    server: false, // Client-side only due to Supabase client
+    watch: [slug] // Refresh when slug changes
   }
-}
+);
 
-// Fetch data on component mount
-onMounted(() => {
-  fetchOrganizationData();
-});
-
-// Watch for slug changes
-watch(() => route.params.slug, () => {
-  fetchOrganizationData();
-});
+// Extract data from the result
+const organization = computed(() => organizationData.value?.organization);
+const members = computed(() => organizationData.value?.members || []);
+const events = computed(() => organizationData.value?.events || []);
 </script>
