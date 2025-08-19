@@ -37,7 +37,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { ref, watch, nextTick } from 'vue';
 
 const props = defineProps({
   ticketId: {
@@ -58,7 +58,7 @@ const emit = defineEmits<{
 const { stripe, isLoading: stripeLoading } = useClientStripe();
 const loading = ref(stripeLoading.value);
 const error = ref('');
-const elements = ref(null);
+const elements = ref<any>(null);
 const isProcessing = ref(false);
 const paymentMessage = ref('');
 
@@ -67,6 +67,19 @@ watch(stripe, async () => {
   if (stripe.value && props.clientSecret) {
     loading.value = true;
     try {
+      // Wait for DOM elements to be ready
+      await nextTick();
+      
+      // Check if elements exist before mounting
+      const linkElement = document.getElementById('link-authentication-element');
+      const paymentElementDiv = document.getElementById('payment-element');
+      
+      if (!linkElement || !paymentElementDiv) {
+        console.error('Payment form elements not found in DOM');
+        error.value = 'Payment form not ready. Please refresh the page.';
+        return;
+      }
+
       // Create Elements instance
       elements.value = stripe.value.elements({
         clientSecret: props.clientSecret,
@@ -97,13 +110,67 @@ watch(stripe, async () => {
 // Handle form submission
 const handleSubmit = async () => {
   if (!stripe.value || !elements.value) {
+    paymentMessage.value = 'Payment system not ready. Please try again.';
     return;
   }
 
   isProcessing.value = true;
   paymentMessage.value = '';
+  error.value = '';
 
   try {
+    // Validate form elements before submission
+    const { error: validationError } = await elements.value.submit();
+    if (validationError) {
+      console.error('Form validation error:', validationError);
+      
+      // Gestion spécifique des erreurs de validation
+      let userMessage = validationError.message;
+      if (validationError.code === 'incomplete_number') {
+        userMessage = 'Veuillez saisir un numéro de carte valide et complet.';
+      } else if (validationError.code === 'incomplete_expiry') {
+        userMessage = 'Veuillez saisir une date d\'expiration valide.';
+      } else if (validationError.code === 'incomplete_cvc') {
+        userMessage = 'Veuillez saisir un code de sécurité valide.';
+      }
+      
+      paymentMessage.value = userMessage;
+      emit('payment-error', validationError);
+      return;
+    }
+
+    // Vérifier l'état du payment intent avant la confirmation
+    console.log('=== BEFORE PAYMENT CONFIRMATION ===');
+    console.log('Client Secret:', props.clientSecret);
+    console.log('Ticket ID:', props.ticketId);
+    
+    // Récupérer l'état actuel du payment intent
+    const { paymentIntent: currentPI } = await stripe.value.retrievePaymentIntent(props.clientSecret);
+    
+    if (!currentPI) {
+      paymentMessage.value = 'Unable to retrieve payment information. Please try again.';
+      emit('payment-error', { message: 'Payment intent not found' });
+      return;
+    }
+    
+    console.log('Payment Intent Status:', currentPI.status);
+    console.log('Payment Intent ID:', currentPI.id);
+    
+    // Si le payment intent est déjà dans un état final, rediriger
+    if (currentPI.status === 'succeeded') {
+      console.log('Payment already succeeded, redirecting...');
+      paymentMessage.value = 'Payment already completed!';
+      emit('payment-success', { ticketId: props.ticketId });
+      navigateTo(`/payment/confirmation/${props.ticketId}`);
+      return;
+    }
+    
+    if (currentPI.status === 'canceled') {
+      paymentMessage.value = 'This payment has been canceled. Please start a new payment.';
+      emit('payment-error', { message: 'Payment canceled' });
+      return;
+    }
+
     const { error: submitError } = await stripe.value.confirmPayment({
       elements: elements.value,
       confirmParams: {
@@ -114,14 +181,27 @@ const handleSubmit = async () => {
 
     if (submitError) {
       // Show error to customer
-      paymentMessage.value = submitError.message || 'An unexpected error occurred.';
+      console.error('Stripe payment error:', submitError);
+      
+      // Gestion spécifique des erreurs Stripe
+      let userMessage = submitError.message || 'An unexpected error occurred.';
+      if (submitError.code === 'payment_intent_unexpected_state') {
+        userMessage = 'Ce paiement a déjà été traité ou est dans un état invalide. Veuillez actualiser la page.';
+      } else if (submitError.code === 'card_declined') {
+        userMessage = 'Votre carte a été refusée. Veuillez vérifier vos informations ou utiliser une autre carte.';
+      } else if (submitError.code === 'insufficient_funds') {
+        userMessage = 'Fonds insuffisants. Veuillez utiliser une autre carte.';
+      }
+      
+      paymentMessage.value = userMessage;
       emit('payment-error', submitError);
     } else {
       // The payment has been processed!
+      console.log('Payment confirmation successful');
       paymentMessage.value = 'Payment successful!';
       emit('payment-success', { ticketId: props.ticketId });
       
-      // Navigate to confirmation page
+      // Navigate to confirmation page with ticket ID
       navigateTo(`/payment/confirmation/${props.ticketId}`);
     }
   } catch (err) {

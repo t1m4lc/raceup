@@ -4,10 +4,13 @@
       <div class="animate-spin h-12 w-12 border-t-4 border-b-4 border-primary rounded-full"></div>
     </div>
     
-    <div v-else-if="error" class="bg-destructive/20 p-4 rounded-md text-destructive mb-4">
-      <h2 class="text-xl font-bold mb-2">Payment Error</h2>
-      <p>{{ error }}</p>
-      <Button @click="goBack" class="mt-4">Go Back</Button>
+    <div v-else-if="error" class="bg-destructive/20 p-6 rounded-md text-destructive mb-4">
+      <h2 class="text-xl font-bold mb-3">Payment Error</h2>
+      <div class="whitespace-pre-line text-sm mb-4">{{ error }}</div>
+      <div class="flex gap-2">
+        <Button @click="goBack" variant="outline">Go Back</Button>
+        <Button @click="fetchTicket" variant="default">Retry</Button>
+      </div>
     </div>
     
     <div v-else>
@@ -73,11 +76,11 @@
             <div class="flex justify-between">
               <div>
                 <div class="text-sm text-muted-foreground">Booking Reference</div>
-                <div class="font-mono text-xs">{{ ticket?.id || ticketId }}</div>
+                <div class="font-mono text-xs">{{ ticket?.id || orderId }}</div>
               </div>
               <div class="text-right">
                 <div class="text-sm text-muted-foreground">Transaction Reference</div>
-                <div class="font-mono text-xs">{{ ticket?.payment?.id || 'N/A' }}</div>
+                <div class="font-mono text-xs">{{ ticket?.stripe_payment_intent_id || 'N/A' }}</div>
               </div>
             </div>
           </div>
@@ -97,11 +100,11 @@
             <div v-for="(participant, index) in ticket?.participants" :key="index" class="flex items-center space-x-4 p-2 rounded-md border bg-background">
               <Avatar>
                 <AvatarFallback>
-                  {{ getInitials(participant.full_name) }}
+                  {{ getInitials(getFullName(participant)) }}
                 </AvatarFallback>
               </Avatar>
               <div>
-                <div class="font-medium">{{ participant.full_name }}</div>
+                <div class="font-medium">{{ getFullName(participant) }}</div>
                 <div class="text-sm text-muted-foreground">
                   {{ formatDate(participant.birthdate, 'YYYY-MM-DD') }} • {{ participant.gender }}
                 </div>
@@ -120,7 +123,7 @@
           </NuxtLink>
         </Button>
         <Button asChild>
-          <NuxtLink :to="`/tickets/${ticketId}`">
+          <NuxtLink :to="`/tickets/${ticket?.id || orderId}`">
             <EyeIcon class="mr-2 h-4 w-4" />
             View Ticket Details
           </NuxtLink>
@@ -147,9 +150,8 @@ import { Separator } from '@/components/ui/separator'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 
 const route = useRoute()
-const ticketId = route.params.ticketId as string
+const orderId = route.params.orderId as string
 const { $dayjs } = useNuxtApp()
-const { $stripe } = useNuxtApp()
 
 const ticket = ref<any>(null)
 const loading = ref(true)
@@ -224,39 +226,18 @@ const getInitials = (name: string) => {
     .substring(0, 2)
 }
 
-// Check payment status with Stripe
-const checkPaymentStatus = async () => {
-  const clientSecret = localStorage.getItem('stripeClientSecret')
-  
-  if (!clientSecret) {
-    console.warn('No client secret found in local storage')
-    return
+// Get full name from participant object (handles both old and new schema)
+const getFullName = (participant: any) => {
+  if (participant.full_name) {
+    return participant.full_name
   }
-  
-  try {
-    // Retrieve payment intent status
-    const { paymentIntent } = await $stripe.retrievePaymentIntent(clientSecret)
-    
-    if (paymentIntent) {
-      switch (paymentIntent.status) {
-        case 'succeeded':
-          paymentStatus.value = 'succeeded'
-          break
-        case 'processing':
-          paymentStatus.value = 'processing'
-          break
-        case 'requires_payment_method':
-        case 'requires_confirmation':
-        case 'requires_action':
-        case 'canceled':
-        default:
-          paymentStatus.value = 'failed'
-          break
-      }
-    }
-  } catch (err) {
-    console.error('Error checking payment status:', err)
+  if (participant.first_name && participant.last_name) {
+    return `${participant.first_name} ${participant.last_name}`
   }
+  if (participant.first_name) {
+    return participant.first_name
+  }
+  return 'Unknown Participant'
 }
 
 // Navigate back
@@ -271,18 +252,33 @@ const fetchTicket = async () => {
   
   try {
     console.log('=== FETCHING TICKETS FROM PENDING ORDER ===')
-    console.log('Pending Order ID:', ticketId)
+    console.log('Pending Order ID:', orderId)
     
     // Always treat the ID as a pending order ID (new architecture)
-    const response = await $fetch(`/api/tickets/pending-order/${ticketId}`) as any
+    const response = await $fetch(`/api/tickets/pending-order/${orderId}`) as any
+    
+    console.log('API Response:', response)
     
     if (!response.success) {
-      throw new Error('Failed to load order information')
+      if (response.error === 'MISSING_TABLE') {
+        error.value = `Database setup required: ${response.message}\n\nPlease contact support or run the database migration.`
+        paymentStatus.value = 'failed'
+        return
+      }
+      
+      if (response.error === 'ORDER_NOT_FOUND') {
+        error.value = `Order not found: ${response.message}\n\nThis may happen if:\n- The order expired\n- Payment was processed through legacy flow\n- There was an issue during checkout`
+        paymentStatus.value = 'failed'
+        return
+      }
+      
+      throw new Error(response.message || 'Failed to load order information')
     }
     
     if (response.tickets.length > 0) {
       console.log(`Found ${response.tickets.length} tickets`)
-      ticket.value = response.tickets[0] // Use first ticket for display
+      // Use the most recent ticket (last one) instead of first one
+      ticket.value = response.tickets[response.tickets.length - 1]
       paymentStatus.value = 'succeeded'
     } else if (response.status === 'processing') {
       console.log('Payment still processing...')

@@ -13,8 +13,10 @@ export default defineEventHandler(async (event) => {
       });
     }
 
-    // Get the user's profile
+    // Get Supabase client
     const supabase = await serverSupabaseClient<Database>(event);
+
+    // Get the user's profile
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
       .select("*")
@@ -46,16 +48,16 @@ export default defineEventHandler(async (event) => {
       });
     }
 
-    // Calculate total amount
+    // Calculate total amount and validate races (NO tickets created yet)
     let totalPriceCents = 0;
-    const tickets = [];
+    const validatedCartItems = [];
 
     // Initialize Stripe
     const stripe = await useServerStripe(event);
 
-    // Process each cart item
+    // Process each cart item - VALIDATE ONLY
     for (const cartItem of cartItems) {
-      // Get race details
+      // Get race details to validate and calculate pricing
       const { data: race, error: raceError } = await supabase
         .from("races")
         .select(
@@ -100,56 +102,11 @@ export default defineEventHandler(async (event) => {
       const itemTotal = raceTotal + extrasTotal;
       totalPriceCents += itemTotal;
 
-      // Create a pending ticket for this cart item
-      const { data: ticket, error: ticketError } = await supabase
-        .from("tickets")
-        .insert({
-          race_id: race.id,
-          purchaser_id: profile.id,
-          total_price_cents: itemTotal,
-          currency: race.currency,
-          status: "pending",
-        })
-        .select()
-        .single();
-
-      if (ticketError || !ticket) {
-        console.error("Error creating ticket:", ticketError);
-        throw createError({
-          statusCode: 500,
-          message: "Failed to create ticket",
-        });
-      }
-
-      // Create participants for this ticket
-      const participantsToInsert = cartItem.participants.map(
-        (participant: any) => ({
-          ticket_id: ticket.id,
-          fullname: `${participant.first_name} ${participant.last_name}`,
-          birthdate: participant.birthdate,
-          gender: participant.gender,
-          emergency_contact_name: participant.emergencyContactName || null,
-          emergency_contact_phone: participant.emergencyContactPhone || null,
-          medical_notes: participant.medicalNotes || null,
-        })
-      );
-
-      const { error: participantsError } = await supabase
-        .from("participants")
-        .insert(participantsToInsert);
-
-      if (participantsError) {
-        console.error("Error creating participants:", participantsError);
-        throw createError({
-          statusCode: 500,
-          message: "Failed to create participants",
-        });
-      }
-
-      tickets.push({
-        ticket,
+      // Store validated cart item with race data
+      validatedCartItems.push({
+        ...cartItem,
         race,
-        participants: cartItem.participants,
+        calculatedTotal: itemTotal,
       });
     }
 
@@ -191,56 +148,122 @@ export default defineEventHandler(async (event) => {
     const fees = calculateFees(totalPriceCents, commissionConfig);
     const finalAmountCents = fees.finalAmountCents;
 
-    // Get organization's Stripe account (use first race's organization)
-    const firstRace = tickets[0].race;
-    const stripeAccountId = firstRace.event.organization.stripe_account_id;
+    // Check if all races belong to organizations with completed Stripe Connect setup
+    const organizationAccounts = new Map();
 
-    // Create payment intent
-    const paymentIntent = await stripe.paymentIntents.create({
+    for (const item of validatedCartItems) {
+      const org = item.race.event.organization;
+      if (!organizationAccounts.has(org.id)) {
+        // Verify Stripe Connect account is properly set up
+        if (!org.stripe_account_id) {
+          throw createError({
+            statusCode: 400,
+            message: `Organization "${org.name}" has not set up payment processing. Please contact the organizer.`,
+          });
+        }
+
+        if (!org.stripe_onboarding_completed) {
+          throw createError({
+            statusCode: 400,
+            message: `Organization "${org.name}" has not completed payment setup. Please contact the organizer.`,
+          });
+        }
+
+        organizationAccounts.set(org.id, {
+          stripeAccountId: org.stripe_account_id,
+          name: org.name,
+        });
+      }
+    }
+
+    // For now, handle single organization. TODO: Support multiple organizations in one payment
+    if (organizationAccounts.size > 1) {
+      throw createError({
+        statusCode: 400,
+        message:
+          "Cart contains races from multiple organizations. Please checkout each organization separately.",
+      });
+    }
+
+    // Get the organization's Stripe account
+    const firstRace = validatedCartItems[0].race;
+    const orgAccount = organizationAccounts.get(
+      firstRace.event.organization.id
+    );
+    const stripeAccountId = orgAccount.stripeAccountId;
+
+    // 🚀 NEW: Create pending order FIRST (before Payment Intent)
+    const { data: pendingOrder, error: orderError } = await supabase
+      .from("pending_orders")
+      .insert({
+        user_id: profile.id,
+        cart_items: cartItems,
+        contact_info: contactInfo,
+        commission_config: commissionConfig,
+        total_amount_cents: finalAmountCents,
+        currency: firstRace.currency,
+        status: "pending",
+      })
+      .select()
+      .single();
+
+    if (orderError || !pendingOrder) {
+      console.error("Error creating pending order:", orderError);
+      throw createError({
+        statusCode: 500,
+        message: "Failed to create order",
+      });
+    }
+
+    console.log("✅ Pending order created:", pendingOrder.id);
+
+    // Create payment intent with minimal metadata - just the pending order ID
+    const paymentIntentData = {
       amount: finalAmountCents,
       currency: firstRace.currency.toLowerCase(),
       receipt_email: contactInfo.email,
       metadata: {
+        // 🎯 ONLY store the pending order ID (well under 500 chars!)
+        pending_order_id: pendingOrder.id,
         user_id: profile.id,
         user_email: profile.email || contactInfo.email,
-        ticket_ids: tickets.map((t) => t.ticket.id).join(","),
-        total_participants: cartItems.reduce(
-          (sum, item) => sum + item.participants.length,
-          0
-        ),
       },
-      ...(stripeAccountId && {
+    };
+
+    // Add Stripe Connect configuration
+    if (stripeAccountId && !stripeAccountId.startsWith("acct_test_")) {
+      Object.assign(paymentIntentData, {
         transfer_data: {
           destination: stripeAccountId,
         },
         application_fee_amount: fees.totalFeeCents,
-      }),
-    });
-
-    // Update tickets with payment intent ID
-    for (const { ticket } of tickets) {
-      await supabase
-        .from("tickets")
-        .update({ stripe_payment_intent_id: paymentIntent.id })
-        .eq("id", ticket.id);
-
-      // Create payment record
-      await supabase.from("payments").insert({
-        ticket_id: ticket.id,
-        amount_cents: ticket.total_price_cents,
-        application_fee_cents: Math.round(fees.totalFeeCents / tickets.length), // Split fee across tickets
-        stripe_payment_intent_id: paymentIntent.id,
-        status: "pending",
       });
+    } else if (stripeAccountId && stripeAccountId.startsWith("acct_test_")) {
+      console.log(`Skipping transfer for test account: ${stripeAccountId}`);
     }
 
+    const paymentIntent = await stripe.paymentIntents.create(paymentIntentData);
+
+    // Update pending order with payment intent ID
+    await supabase
+      .from("pending_orders")
+      .update({
+        stripe_payment_intent_id: paymentIntent.id,
+        status: "processing",
+      })
+      .eq("id", pendingOrder.id);
+
+    console.log("✅ Payment Intent created:", paymentIntent.id);
+
+    // Return payment details with pending order ID (instead of ticket IDs)
     return {
       clientSecret: paymentIntent.client_secret,
       paymentIntentId: paymentIntent.id,
-      ticketIds: tickets.map((t) => t.ticket.id),
+      pendingOrderId: pendingOrder.id, // 🆕 For tracking
       amount: finalAmountCents / 100,
       currency: firstRace.currency,
       fees: fees.totalFeeCents / 100,
+      message: "Payment intent created. Complete payment to create tickets.",
     };
   } catch (error: any) {
     console.error("Payment intent creation error:", error);

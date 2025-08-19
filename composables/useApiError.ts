@@ -1,6 +1,6 @@
 // composables/useApiError.ts
 export const useApiError = () => {
-  const toast = useToast();
+  const { toast } = useToast();
 
   // Handle API errors with user-friendly messages
   const handleError = (error: any, context = "Operation") => {
@@ -18,11 +18,7 @@ export const useApiError = () => {
 
     // Show toast notification if available
     if (toast) {
-      toast.toast({
-        title: `${context} Failed`,
-        description: message,
-        variant: "destructive",
-      });
+      toast.error(`${context} Failed: ${message}`);
     }
 
     return message;
@@ -45,11 +41,7 @@ export const useApiError = () => {
   // Success notification helper
   const showSuccess = (title: string, description?: string) => {
     if (toast) {
-      toast.toast({
-        title,
-        description,
-        variant: "default",
-      });
+      toast.success(`${title}${description ? `: ${description}` : ""}`);
     }
   };
 

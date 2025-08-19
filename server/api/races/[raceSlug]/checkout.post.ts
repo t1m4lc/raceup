@@ -98,7 +98,7 @@ export default defineEventHandler(async (event) => {
           race_name: race.name,
           event_id: race.event_id,
           event_name: race.event.name,
-          purchaser_id: profile.id,
+          buyer_id: profile.id,
           num_participants: participants.length,
         },
       },
@@ -112,7 +112,7 @@ export default defineEventHandler(async (event) => {
       .from("tickets")
       .insert({
         race_id: race.id,
-        purchaser_id: profile.id,
+        buyer_id: profile.id,
         total_price_cents: totalPriceCents,
         currency: race.currency,
         stripe_payment_intent_id: paymentIntent.id,

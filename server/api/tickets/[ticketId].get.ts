@@ -49,7 +49,7 @@ export default defineEventHandler(async (event) => {
             organization:organizations(*)
           )
         ),
-        purchaser:profiles!tickets_purchaser_id_fkey(*),
+        buyer:profiles(*),
         participants(*)
       `
       )
@@ -65,7 +65,7 @@ export default defineEventHandler(async (event) => {
     }
 
     // Check if the user is the purchaser or has a role that allows access
-    const isOwner = ticket.purchaser_id === profile.id;
+    const isOwner = ticket.buyer_id === profile.id;
 
     // Check if user is founder or volunteer of the organization that owns this event
     const organization = ticket.race.event?.organization;
@@ -95,7 +95,7 @@ export default defineEventHandler(async (event) => {
       id: ticket.id,
       status: ticket.status,
       totalAmount: ticket.total_price_cents / 100,
-      currency: ticket.currency,
+      currency: ticket.race.currency,
       race: {
         id: ticket.race.id,
         name: ticket.race.name,
@@ -104,8 +104,8 @@ export default defineEventHandler(async (event) => {
         eventId: ticket.race.event_id,
       },
       purchaser: {
-        id: ticket.purchaser.id,
-        name: ticket.purchaser.fullname,
+        id: ticket.buyer.id,
+        name: ticket.buyer.full_name,
       },
       participants: ticket.participants.map((p: any) => ({
         id: p.id,

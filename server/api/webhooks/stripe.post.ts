@@ -1,6 +1,5 @@
 import { serverSupabaseServiceRole } from "#supabase/server";
 import { useServerStripe } from "#stripe/server";
-import * as QRCode from "qrcode";
 import type { Database } from "~/supabase/supabase";
 
 export default defineEventHandler(async (event) => {
@@ -48,14 +47,125 @@ export default defineEventHandler(async (event) => {
     if (stripeEvent.type === "payment_intent.succeeded") {
       const paymentIntent = stripeEvent.data.object;
 
-      // First check if tickets already exist for this payment intent
+      console.log("🎉 Payment succeeded:", paymentIntent.id);
+
+      // Check for pending order ID in metadata
+      const pendingOrderId = paymentIntent.metadata?.pending_order_id;
+
+      if (pendingOrderId) {
+        console.log("📋 Found pending order ID:", pendingOrderId);
+
+        // Get the pending order data
+        const { data: pendingOrder, error: pendingOrderError } = await supabase
+          .from("pending_orders")
+          .select("*")
+          .eq("id", pendingOrderId)
+          .single();
+
+        if (pendingOrderError || !pendingOrder) {
+          console.error(
+            "❌ Failed to find pending order:",
+            pendingOrderId,
+            pendingOrderError
+          );
+          throw new Error(`Pending order not found: ${pendingOrderId}`);
+        }
+
+        console.log(
+          "📦 Processing pending order cart items:",
+          pendingOrder.cart_items
+        );
+
+        // Create tickets and payments from the cart data
+        const cartItems = pendingOrder.cart_items as any[];
+        const createdTickets = [];
+
+        if (!cartItems || !Array.isArray(cartItems)) {
+          throw new Error("Invalid cart items in pending order");
+        }
+
+        for (const item of cartItems) {
+          // Create ticket
+          const { data: ticket, error: ticketError } = await supabase
+            .from("tickets")
+            .insert({
+              race_id: item.raceId,
+              buyer_id: pendingOrder.user_id,
+              quantity: item.participants?.length || 1,
+              total_price_cents: item.totalPrice,
+              stripe_payment_intent_id: paymentIntent.id,
+              status: "paid",
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            })
+            .select()
+            .single();
+
+          if (ticketError) {
+            console.error("❌ Failed to create ticket:", ticketError);
+            throw new Error("Failed to create ticket");
+          }
+
+          // Create participants
+          if (item.participants && Array.isArray(item.participants)) {
+            for (const participant of item.participants) {
+              // Split full_name into first_name and last_name
+              const nameParts = participant.full_name?.split(" ") || [
+                "Unknown",
+                "Participant",
+              ];
+              const firstName = nameParts[0];
+              const lastName = nameParts.slice(1).join(" ") || "Participant";
+
+              const { error: participantError } = await supabase
+                .from("participants")
+                .insert({
+                  ticket_id: ticket.id,
+                  first_name: firstName,
+                  last_name: lastName,
+                  gender: participant.gender,
+                  birthdate: participant.birthdate,
+                  created_at: new Date().toISOString(),
+                  updated_at: new Date().toISOString(),
+                });
+
+              if (participantError) {
+                console.error(
+                  "❌ Failed to create participant:",
+                  participantError
+                );
+                // Don't throw here, continue with other participants
+              }
+            }
+          }
+
+          createdTickets.push(ticket);
+          console.log("✅ Created ticket:", ticket.id);
+        }
+
+        // Mark pending order as completed
+        await supabase
+          .from("pending_orders")
+          .update({
+            status: "completed",
+            stripe_payment_intent_id: paymentIntent.id,
+          })
+          .eq("id", pendingOrderId);
+
+        console.log(
+          `✅ Successfully processed pending order ${pendingOrderId} with ${createdTickets.length} tickets`
+        );
+      }
+
+      // Fallback: update existing tickets (current behavior)
       const { data: existingTickets } = await supabase
         .from("tickets")
         .select("id")
         .eq("stripe_payment_intent_id", paymentIntent.id);
 
       if (existingTickets && existingTickets.length > 0) {
-        // Tickets already exist, just update status
+        console.log("📋 Found existing tickets, updating status...");
+
         await supabase
           .from("tickets")
           .update({ status: "paid", updated_at: new Date().toISOString() })
@@ -63,186 +173,33 @@ export default defineEventHandler(async (event) => {
 
         await supabase
           .from("payments")
-          .update({ status: "completed" })
+          .update({
+            status: "completed",
+            stripe_payment_method:
+              typeof paymentIntent.payment_method === "string"
+                ? paymentIntent.payment_method
+                : paymentIntent.payment_method?.id || null,
+            updated_at: new Date().toISOString(),
+          })
           .eq("stripe_payment_intent_id", paymentIntent.id);
 
-        return { received: true, message: "Ticket status updated" };
-      }
-
-      // No existing tickets - create them from payment intent metadata
-      const metadata = paymentIntent.metadata;
-
-      if (!metadata.cart_items || !metadata.user_id) {
-        throw new Error("Invalid payment intent metadata - missing cart data");
-      }
-
-      const cartItems = JSON.parse(metadata.cart_items);
-      const contactInfo = JSON.parse(metadata.contact_info || "{}");
-      const userId = metadata.user_id;
-
-      // Create tickets and participants for each cart item
-      for (const cartItem of cartItems) {
-        // Calculate price for this cart item
-        const { data: race } = await supabase
-          .from("races")
-          .select("*")
-          .eq("id", cartItem.raceId)
-          .single();
-
-        if (!race) {
-          console.error(`Race not found: ${cartItem.raceId}`);
-          continue;
-        }
-
-        const raceTotal = race.price_cents * cartItem.participants.length;
-        const extrasTotal = cartItem.participants.reduce(
-          (total: number, participant: any) => {
-            if (participant.extras && participant.extras.length > 0) {
-              return (
-                total +
-                participant.extras.reduce((sum: number, extra: any) => {
-                  return sum + extra.price * extra.quantity * 100;
-                }, 0)
-              );
-            }
-            return total;
-          },
-          0
+        console.log("✅ Tickets updated for payment intent:", paymentIntent.id);
+      } else if (!pendingOrderId) {
+        console.error(
+          `No tickets or pending order found for payment intent ${paymentIntent.id}`
         );
-
-        const itemTotal = raceTotal + extrasTotal;
-
-        // Create ticket
-        const { data: ticket, error: ticketError } = await supabase
-          .from("tickets")
-          .insert({
-            race_id: race.id,
-            buyer_id: userId,
-            total_price_cents: itemTotal,
-            stripe_payment_intent_id: paymentIntent.id,
-            status: "paid", // Already paid at this point
-          })
-          .select()
-          .single();
-
-        if (ticketError || !ticket) {
-          console.error("Error creating ticket:", ticketError);
-          continue;
-        }
-
-        // Create participants for this ticket
-        const participantsToInsert = cartItem.participants.map(
-          (participant: any) => ({
-            ticket_id: ticket.id,
-            first_name: participant.first_name,
-            last_name: participant.last_name,
-            birthdate: participant.birthdate,
-            gender: participant.gender,
-            emergency_contact_name: participant.emergencyContactName || null,
-            emergency_contact_phone: participant.emergencyContactPhone || null,
-            medical_notes: participant.medicalNotes || null,
-          })
-        );
-
-        const { data: participants, error: participantsError } = await supabase
-          .from("participants")
-          .insert(participantsToInsert)
-          .select();
-
-        if (participantsError || !participants) {
-          console.error("Error creating participants:", participantsError);
-          continue;
-        }
-
-        // Create payment record
-        await supabase.from("payments").insert({
-          ticket_id: ticket.id,
-          amount_cents: itemTotal,
-          application_fee_cents: Math.round(
-            paymentIntent.application_fee_amount || 0
-          ),
-          stripe_payment_intent_id: paymentIntent.id,
-          status: "completed",
-        });
-
-        // Generate individual tickets with QR codes for each participant
-        for (const participant of participants) {
-          try {
-            // Generate unique QR code data
-            const qrData = await generateQRCodeData(ticket.id, participant.id);
-
-            // Generate unique ticket number
-            const ticketNumber = await generateTicketNumber();
-
-            // Create individual ticket using raw SQL to avoid type issues
-            const { error: individualTicketError } = await supabase.rpc(
-              "create_individual_ticket",
-              {
-                p_ticket_id: ticket.id,
-                p_participant_id: participant.id,
-                p_qr_code_data: qrData,
-                p_ticket_number: ticketNumber,
-                p_is_user_linked: participant.user_id ? true : false,
-                p_linked_user_id: participant.user_id || undefined,
-              }
-            );
-
-            if (individualTicketError) {
-              console.error(
-                `Error creating individual ticket for participant ${participant.id}:`,
-                individualTicketError
-              );
-              throw new Error(
-                `Failed to create individual ticket: ${individualTicketError.message}`
-              );
-            }
-
-            console.log(
-              `✅ Generated individual ticket ${ticketNumber} for participant ${participant.first_name} ${participant.last_name}`
-            );
-          } catch (error) {
-            console.error(
-              `Error generating ticket for participant ${participant.id}:`,
-              error
-            );
-            throw error;
-          }
-        }
+        throw new Error("No order found for this payment intent");
       }
-
-      // Update the payment record
-      const { error: paymentError } = await supabase
-        .from("payments")
-        .update({
-          status: "succeeded",
-          stripe_payment_method:
-            typeof paymentIntent.payment_method === "string"
-              ? paymentIntent.payment_method
-              : paymentIntent.payment_method?.id || null,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("stripe_payment_intent_id", paymentIntent.id);
-
-      if (paymentError) {
-        console.error("Error updating payment record:", paymentError);
-        throw new Error(
-          `Failed to update payment record: ${paymentError.message}`
-        );
-      }
-
-      console.log(
-        `✅ Successfully processed payment and generated tickets for payment intent: ${paymentIntent.id}`
-      );
     } else if (stripeEvent.type === "payment_intent.payment_failed") {
       const paymentIntent = stripeEvent.data.object;
 
-      // Update the ticket status
+      // Marquer les tickets comme échoués
       await supabase
         .from("tickets")
-        .update({ status: "pending", updated_at: new Date().toISOString() })
+        .update({ status: "failed", updated_at: new Date().toISOString() })
         .eq("stripe_payment_intent_id", paymentIntent.id);
 
-      // Update the payment record
+      // Marquer les payments comme échoués
       await supabase
         .from("payments")
         .update({
@@ -264,34 +221,3 @@ export default defineEventHandler(async (event) => {
     });
   }
 });
-
-// Helper function to generate secure QR code data
-async function generateQRCodeData(
-  ticketId: string,
-  participantId: string
-): Promise<string> {
-  const timestamp = Date.now().toString();
-  const dataToHash = `${ticketId}-${participantId}-${timestamp}`;
-
-  // Create a secure hash
-  const encoder = new TextEncoder();
-  const data = encoder.encode(dataToHash);
-  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  const hashHex = hashArray
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-
-  // Return a verification URL format
-  const baseUrl = process.env.NUXT_PUBLIC_SITE_URL || "https://your-domain.com";
-  return `${baseUrl}/verify-ticket?code=${hashHex}&t=${ticketId}&p=${participantId}`;
-}
-
-// Helper function to generate unique ticket number
-async function generateTicketNumber(): Promise<string> {
-  // Generate a random 6-digit number with prefix
-  const randomNum = Math.floor(Math.random() * 1000000)
-    .toString()
-    .padStart(6, "0");
-  return `TK${randomNum}`;
-}

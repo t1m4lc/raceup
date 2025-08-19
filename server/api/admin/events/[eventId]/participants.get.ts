@@ -87,7 +87,7 @@ export default defineEventHandler(async (event) => {
             distance_km,
             event_id
           ),
-          purchaser:profiles!tickets_purchaser_id_fkey(
+          buyer:profiles!tickets_buyer_id_fkey(
             id,
             fullname
           )

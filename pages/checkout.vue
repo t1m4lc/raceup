@@ -407,10 +407,13 @@ const proceedToPayment = async () => {
     // Store payment details for confirmation page
     localStorage.setItem('stripeClientSecret', response.clientSecret)
     localStorage.setItem('stripePaymentIntentId', response.paymentIntentId)
+    localStorage.setItem('stripePendingOrderId', response.pendingOrderId)
+    localStorage.setItem('stripePaymentAmount', response.amount.toString())
+    localStorage.setItem('stripePaymentCurrency', response.currency)
+    localStorage.setItem('stripePaymentFees', response.fees.toString())
     
-    // Since no tickets are created yet, we'll use the payment intent ID as reference
-    // The actual tickets will be created after successful payment via webhook
-    router.push(`/payment/checkout/${response.paymentIntentId}`)
+    // 🚀 Use pending order ID for checkout page
+    router.push(`/payment/checkout/${response.pendingOrderId}`)
   } catch (error: any) {
     console.error('Payment processing error:', error)
     

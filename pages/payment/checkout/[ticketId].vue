@@ -45,7 +45,7 @@
           <StripePaymentForm 
             v-if="clientSecret"
             :client-secret="clientSecret"
-            :ticket-id="paymentIntentId"
+            :ticket-id="pendingOrderId"
             @payment-success="handlePaymentSuccess"
             @payment-error="handlePaymentError"
           />
@@ -64,7 +64,7 @@ import StripePaymentForm from '@/components/checkout/StripePaymentForm.vue'
 
 const route = useRoute()
 const router = useRouter()
-const paymentIntentId = route.params.ticketId as string // Actually payment intent ID now
+const pendingOrderId = route.params.ticketId as string // Now using pending order ID
 
 const loading = ref(true)
 const error = ref('')
@@ -73,35 +73,36 @@ const paymentAmount = ref(0)
 const applicationFee = ref(0)
 const currency = ref('EUR')
 
-// Get payment details from localStorage (set by checkout page)
-onMounted(() => {
+// Récupérer les données depuis le localStorage (stockées lors du checkout)
+onMounted(async () => {
   try {
-    const storedClientSecret = localStorage.getItem('stripeClientSecret')
-    const storedPaymentIntentId = localStorage.getItem('stripePaymentIntentId')
-
-    if (!storedClientSecret || !storedPaymentIntentId) {
-      error.value = 'Payment session not found. Please start checkout again.'
-      loading.value = false
-      return
-    }
-
-    // Verify the payment intent ID matches
-    if (storedPaymentIntentId !== paymentIntentId) {
-      error.value = 'Invalid payment session. Please start checkout again.'
-      loading.value = false
-      return
-    }
-
-    clientSecret.value = storedClientSecret
-
-    // Parse payment amount from client secret (basic estimation)
-    // In a real app, you might call an API to get payment intent details
-    // For now, we'll just show a generic message since the amount is in the Stripe payment form
-    loading.value = false
+    console.log('Loading payment data for pending order:', pendingOrderId)
     
-  } catch (err) {
-    console.error('Error loading payment details:', err)
-    error.value = 'Failed to load payment information. Please try again.'
+    // Récupérer les données depuis localStorage
+    const storedClientSecret = localStorage.getItem('stripeClientSecret')
+    const storedAmount = localStorage.getItem('stripePaymentAmount')
+    const storedCurrency = localStorage.getItem('stripePaymentCurrency')
+    const storedFees = localStorage.getItem('stripePaymentFees')
+    
+    if (!storedClientSecret) {
+      throw new Error('Payment session expired. Please try again.')
+    }
+    
+    clientSecret.value = storedClientSecret
+    paymentAmount.value = parseFloat(storedAmount || '0')
+    currency.value = storedCurrency || 'EUR'
+    applicationFee.value = parseFloat(storedFees || '0')
+    
+    console.log('Payment data loaded from localStorage:', { 
+      amount: paymentAmount.value, 
+      currency: currency.value, 
+      fees: applicationFee.value 
+    })
+    
+    loading.value = false
+  } catch (apiError) {
+    console.error('Failed to load payment data:', apiError)
+    error.value = 'Payment session not found. Please try again.'
     loading.value = false
   }
 })
@@ -119,10 +120,10 @@ const handlePaymentSuccess = (paymentIntent: any) => {
   // Clear localStorage
   localStorage.removeItem('stripeClientSecret')
   localStorage.removeItem('stripePaymentIntentId')
+  localStorage.removeItem('stripePendingOrderId')
   
-  // Redirect to confirmation page using payment intent ID
-  // The webhook will create the actual tickets, and we'll fetch them on the confirmation page
-  router.push(`/payment/confirmation/${paymentIntentId}`)
+  // Redirect to confirmation page using pending order ID
+  router.push(`/payment/confirmation/${pendingOrderId}`)
 }
 
 const handlePaymentError = (error: any) => {

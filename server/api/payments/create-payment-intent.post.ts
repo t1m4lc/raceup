@@ -13,8 +13,10 @@ export default defineEventHandler(async (event) => {
       });
     }
 
-    // Get the user's profile
+    // Get Supabase client
     const supabase = await serverSupabaseClient<Database>(event);
+
+    // Get the user's profile
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
       .select("*")
@@ -46,7 +48,7 @@ export default defineEventHandler(async (event) => {
       });
     }
 
-    // Calculate total amount and validate races (NO database writes yet)
+    // Calculate total amount and validate races (NO tickets created yet)
     let totalPriceCents = 0;
     const validatedCartItems = [];
 
@@ -100,7 +102,7 @@ export default defineEventHandler(async (event) => {
       const itemTotal = raceTotal + extrasTotal;
       totalPriceCents += itemTotal;
 
-      // Store validated cart item with race data for metadata
+      // Store validated cart item with race data
       validatedCartItems.push({
         ...cartItem,
         race,
@@ -190,46 +192,96 @@ export default defineEventHandler(async (event) => {
     );
     const stripeAccountId = orgAccount.stripeAccountId;
 
-    // Create payment intent with minimal metadata - just IDs for tracking
+    // 🚀 NEW: Create pending order FIRST (before Payment Intent)
+    const { data: pendingOrder, error: orderError } = await supabase
+      .from("pending_orders")
+      .insert({
+        user_id: profile.id,
+        cart_items: cartItems,
+        contact_info: contactInfo,
+        commission_config: commissionConfig,
+        total_amount_cents: finalAmountCents,
+        currency: firstRace.currency,
+        status: "pending",
+      })
+      .select()
+      .single();
+
+    if (orderError || !pendingOrder) {
+      console.error("Error creating pending order:", orderError);
+
+      // Provide specific error message for missing table
+      if (orderError?.code === "42501") {
+        throw createError({
+          statusCode: 500,
+          message:
+            "Database setup required: pending_orders table does not exist. Please run migrations.",
+        });
+      }
+
+      if (orderError?.code === "42P01") {
+        throw createError({
+          statusCode: 500,
+          message:
+            "Database table missing: pending_orders table not found. Please run migrations.",
+        });
+      }
+
+      throw createError({
+        statusCode: 500,
+        message: "Failed to create order",
+      });
+    }
+
+    console.log("✅ Pending order created:", pendingOrder.id);
+
+    // Create payment intent with minimal metadata - just the pending order ID
     const paymentIntentData = {
       amount: finalAmountCents,
       currency: firstRace.currency.toLowerCase(),
       receipt_email: contactInfo.email,
       metadata: {
+        // 🎯 ONLY store the pending order ID (well under 500 chars!)
+        pending_order_id: pendingOrder.id,
         user_id: profile.id,
-        race_id: validatedCartItems[0].raceId,
-        event_id: firstRace.event.id,
+        user_email: profile.email || contactInfo.email,
       },
     };
 
     // Add Stripe Connect configuration
-    // Skip transfers for test accounts to avoid "No such destination" errors
     if (stripeAccountId && !stripeAccountId.startsWith("acct_test_")) {
       Object.assign(paymentIntentData, {
-        // Transfer money to connected account after fees
         transfer_data: {
           destination: stripeAccountId,
         },
-        // Platform keeps the application fee
         application_fee_amount: fees.totalFeeCents,
       });
     } else if (stripeAccountId && stripeAccountId.startsWith("acct_test_")) {
-      // For test accounts, just collect payment without transfer
       console.log(`Skipping transfer for test account: ${stripeAccountId}`);
     }
 
     const paymentIntent = await stripe.paymentIntents.create(paymentIntentData);
 
-    // Return payment details WITHOUT creating database records
+    // Update pending order with payment intent ID
+    await supabase
+      .from("pending_orders")
+      .update({
+        stripe_payment_intent_id: paymentIntent.id,
+        status: "processing",
+      })
+      .eq("id", pendingOrder.id);
+
+    console.log("✅ Payment Intent created:", paymentIntent.id);
+
+    // Return payment details with pending order ID (instead of ticket IDs)
     return {
       clientSecret: paymentIntent.client_secret,
       paymentIntentId: paymentIntent.id,
+      pendingOrderId: pendingOrder.id, // 🆕 For tracking
       amount: finalAmountCents / 100,
       currency: firstRace.currency,
       fees: fees.totalFeeCents / 100,
-      // Note: No ticketIds here - they will be created after payment
-      message:
-        "Payment intent created. Complete payment to finalize registration.",
+      message: "Payment intent created. Complete payment to create tickets.",
     };
   } catch (error: any) {
     console.error("Payment intent creation error:", error);

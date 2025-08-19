@@ -411,6 +411,48 @@ export type Database = {
           },
         ]
       }
+      pending_orders: {
+        Row: {
+          cart_items: Json
+          commission_config: Json | null
+          contact_info: Json
+          created_at: string
+          currency: string
+          expires_at: string
+          id: string
+          status: string
+          stripe_payment_intent_id: string | null
+          total_amount_cents: number
+          user_id: string
+        }
+        Insert: {
+          cart_items: Json
+          commission_config?: Json | null
+          contact_info: Json
+          created_at?: string
+          currency?: string
+          expires_at?: string
+          id?: string
+          status?: string
+          stripe_payment_intent_id?: string | null
+          total_amount_cents: number
+          user_id: string
+        }
+        Update: {
+          cart_items?: Json
+          commission_config?: Json | null
+          contact_info?: Json
+          created_at?: string
+          currency?: string
+          expires_at?: string
+          id?: string
+          status?: string
+          stripe_payment_intent_id?: string | null
+          total_amount_cents?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -425,7 +467,6 @@ export type Database = {
           last_name: string | null
           medical_notes: string | null
           onboarding_completed: boolean | null
-          phone: string | null
           phone_number: string | null
           updated_at: string | null
         }
@@ -442,7 +483,6 @@ export type Database = {
           last_name?: string | null
           medical_notes?: string | null
           onboarding_completed?: boolean | null
-          phone?: string | null
           phone_number?: string | null
           updated_at?: string | null
         }
@@ -459,7 +499,6 @@ export type Database = {
           last_name?: string | null
           medical_notes?: string | null
           onboarding_completed?: boolean | null
-          phone?: string | null
           phone_number?: string | null
           updated_at?: string | null
         }
@@ -689,6 +728,14 @@ export type Database = {
         Args: { input_text: string }
         Returns: string
       }
+      cleanup_expired_pending_orders: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
+      complete_pending_order: {
+        Args: { order_id: string }
+        Returns: undefined
+      }
       create_individual_ticket: {
         Args: {
           p_is_user_linked?: boolean
@@ -723,6 +770,22 @@ export type Database = {
       get_participant_extras_total: {
         Args: { participant_uuid: string }
         Returns: number
+      }
+      get_pending_order: {
+        Args: { order_id: string; payment_intent_id: string }
+        Returns: {
+          cart_items: Json
+          commission_config: Json
+          contact_info: Json
+          created_at: string
+          currency: string
+          expires_at: string
+          id: string
+          status: string
+          stripe_payment_intent_id: string
+          total_amount_cents: number
+          user_id: string
+        }[]
       }
       get_ticket_extras_total: {
         Args: { ticket_uuid: string }
